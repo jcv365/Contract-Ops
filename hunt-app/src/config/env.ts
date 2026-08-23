@@ -27,11 +27,17 @@ export const envSchema = z.object({
   AZURE_CLIENT_SECRET: z.string().optional(),
   GRAPH_REDIRECT_URI: z.string().url().optional(),
 
-  // AI Provider
-  AI_PROVIDER: z.enum(['openai', 'anthropic', 'local']).default('openai'),
+  // AI Provider — routed through freellmapi (CLAUDE.md rule 4: reuse
+  // existing model routing/infrastructure rather than adding a fourth AI
+  // vendor). openai/anthropic/local are kept only as an escape hatch for
+  // local dev against a different router; freellmapi is the default and
+  // the only path this build actually exercises.
+  AI_PROVIDER: z.enum(['freellmapi', 'openai', 'anthropic', 'local']).default('freellmapi'),
+  FREELLMAPI_BASE_URL: z.string().url().default('http://host.docker.internal:3010'),
+  FREELLMAPI_API_KEY: z.string().optional(),
   OPENAI_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
-  AI_MODEL: z.string().default('gpt-4o'),
+  AI_MODEL: z.string().default('gpt-4o-mini'),
 
   // Search/Scraping
   USER_AGENT: z.string().default('HUNT-Contract-Acquisition-OS/1.0'),
