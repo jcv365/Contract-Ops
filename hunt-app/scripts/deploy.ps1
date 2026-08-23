@@ -45,6 +45,11 @@ try {
         Invoke-Command -Session $session -ScriptBlock {
             param($dir)
             Set-Location $dir
+            # Process-scoped only — does not change the host's persistent
+            # execution policy. Needed because .ps1 FILES invoked with `&`
+            # are subject to the execution policy even when the enclosing
+            # Invoke-Command scriptblock itself is not.
+            Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force
             & .\scripts\generate-secrets.ps1
         } -ArgumentList $RemoteDir
         Write-Host "A fresh .env was generated on $Server at $RemoteDir\.env." -ForegroundColor Yellow

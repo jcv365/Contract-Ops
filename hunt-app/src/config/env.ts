@@ -25,7 +25,14 @@ export const envSchema = z.object({
   AZURE_TENANT_ID: z.string().optional(),
   AZURE_CLIENT_ID: z.string().optional(),
   AZURE_CLIENT_SECRET: z.string().optional(),
-  GRAPH_REDIRECT_URI: z.string().url().optional(),
+  // docker-compose's ${VAR:-} interpolation yields an empty string, not an
+  // absent key, when the .env value is blank — z.string().url().optional()
+  // rejects "" (it's a defined value that fails .url(), not `undefined`),
+  // which crashed the container on first deploy. Treat blank as absent.
+  GRAPH_REDIRECT_URI: z
+    .union([z.literal(''), z.string().url()])
+    .optional()
+    .transform((v) => (v ? v : undefined)),
 
   // AI Provider — routed through freellmapi (CLAUDE.md rule 4: reuse
   // existing model routing/infrastructure rather than adding a fourth AI

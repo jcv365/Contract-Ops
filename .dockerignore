@@ -1,0 +1,9 @@
+.git
+archive
+*.zip
+hunt-app/node_modules
+hunt-app/dist
+hunt-app/.env
+hunt-app/.env.*
+!hunt-app/.env.example
+**/*.log

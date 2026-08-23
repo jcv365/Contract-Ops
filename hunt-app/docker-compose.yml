@@ -8,8 +8,11 @@
 services:
   hunt-app:
     build:
-      context: .
-      dockerfile: Dockerfile
+      # Repo root, not this directory — see the note at the top of
+      # Dockerfile: it needs both hunt-app/ and the sibling docs-pack/ in
+      # its build context.
+      context: ..
+      dockerfile: hunt-app/Dockerfile
       args:
         GIT_SHA: ${GIT_SHA:-unknown}
     image: hunt-app:${HUNT_IMAGE_TAG:-1.0.0}

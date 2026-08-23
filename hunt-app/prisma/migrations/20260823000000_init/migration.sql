@@ -1,4 +1,4 @@
-﻿-- CreateEnum
+-- CreateEnum
 CREATE TYPE "EvidenceState" AS ENUM ('VERIFIED', 'SOURCE_REPORTED', 'INFERRED', 'UNKNOWN', 'CONFLICTED');
 
 -- CreateEnum

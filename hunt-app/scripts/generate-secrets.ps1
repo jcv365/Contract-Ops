@@ -7,8 +7,16 @@ param(
 )
 
 function New-RandomSecret([int]$Bytes = 32) {
+    # RandomNumberGenerator.Fill() is .NET Core+ only — the target host
+    # runs Windows PowerShell 5.1 on .NET Framework, where only the
+    # instance-based RNGCryptoServiceProvider.GetBytes() exists.
     $buffer = New-Object byte[] $Bytes
-    [System.Security.Cryptography.RandomNumberGenerator]::Fill($buffer)
+    $rng = New-Object System.Security.Cryptography.RNGCryptoServiceProvider
+    try {
+        $rng.GetBytes($buffer)
+    } finally {
+        $rng.Dispose()
+    }
     return [Convert]::ToBase64String($buffer).Substring(0, $Bytes)
 }
 
