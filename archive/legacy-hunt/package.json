@@ -1,0 +1,53 @@
+{
+  "name": "hunt-contract-acquisition-os",
+  "version": "1.0.0",
+  "description": "Phase 1 Contract Acquisition OS - Find and win remote international contracts",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest",
+    "test:watch": "vitest watch",
+    "lint": "oxlint src",
+    "typecheck": "tsc --noEmit",
+    "docker:build": "docker build -t hunt-app .",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
+  },
+  "keywords": [
+    "contract",
+    "acquisition",
+    "recruiting",
+    "bidops",
+    "outreach"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "dotenv": "^16.3.1",
+    "pg": "^8.11.3",
+    "zod": "^3.22.4",
+    "openai": "^4.20.1",
+    "axios": "^1.6.2",
+    "date-fns": "^3.0.0",
+    "uuid": "^9.0.1",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/node": "^20.10.6",
+    "@types/pg": "^8.10.9",
+    "@types/uuid": "^9.0.7",
+    "@types/winston": "^2.4.4",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.0.4",
+    "oxlint": "^0.9.0"
+  }
+}

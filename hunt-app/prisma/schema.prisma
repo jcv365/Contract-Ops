@@ -1,0 +1,574 @@
+// HUNT Contract Acquisition OS - Phase 1 Database Schema
+// Generated from Phase 1 Data Model specifications
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Core Entities
+// ============================================
+
+model User {
+  id            String    @id @default(uuid())
+  profileId     String?   @unique
+  settings      Json      @default("{}")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  profile       Profile?
+  evidence      Evidence[]
+  approvals     OutreachApproval[]
+  auditEvents   AuditEvent[]
+
+  @@map("users")
+}
+
+model Profile {
+  id                String   @id @default(uuid())
+  userId            String   @unique
+  headline          String?
+  summary           String?
+  skills            String[]
+  certifications    String[]
+  domains           String[]
+  projects          Json     @default("[]")
+  achievements      Json     @default("[]")
+  contractPreferences Json   @default("{}")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  evidence          Evidence[]
+
+  @@map("profiles")
+}
+
+model Evidence {
+  id              String   @id @default(uuid())
+  profileId       String
+  claim           String
+  source          String
+  sourceLocation  String?
+  confidence      Float    @default(0.5)
+  approved        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  profile         Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  outreachDrafts  OutreachDraft[] @relation("EvidenceToOutreachDraft")
+
+  @@index([profileId])
+  @@map("evidence")
+}
+
+// ============================================
+// Source Registry
+// ============================================
+
+model Source {
+  id                    String   @id @default(uuid())
+  sourceId              String   @unique
+  name                  String
+  type                  SourceType
+  url                   String?
+  country               String?
+  region                String?
+  global                Boolean  @default(false)
+  local                 Boolean  @default(false)
+  apiAvailable          Boolean  @default(false)
+  rssAvailable          Boolean  @default(false)
+  browserSearchAvailable Boolean @default(false)
+  mcpAvailable          Boolean  @default(false)
+  adapterStatus         AdapterStatus @default(PENDING)
+  reliabilityScore      Float    @default(0.5)
+  contractRelevance     Float    @default(0.5)
+  remoteRelevance       Float    @default(0.5)
+  internationalRelevance Float   @default(0.5)
+  termsUrl              String?
+  licence               String?
+  attributionRequired   Boolean  @default(false)
+  rateLimit             Int?
+  lastHealthCheck       DateTime?
+  lastSuccessfulSearch  DateTime?
+  notes                 String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  opportunities         Opportunity[]
+  healthChecks          SourceHealthCheck[]
+
+  @@index([sourceId])
+  @@index([type])
+  @@index([adapterStatus])
+  @@map("sources")
+}
+
+enum SourceType {
+  JOB_BOARD
+  AGGREGATOR
+  API
+  RSS
+  RECRUITER_WEBSITE
+  COMPANY_CAREERS
+  PROCUREMENT_PORTAL
+  FRAMEWORK_PORTAL
+  PROFESSIONAL_DIRECTORY
+  SOURCE_CATALOGUE
+}
+
+enum AdapterStatus {
+  PENDING
+  ACTIVE
+  DEGRADED
+  FAILED
+  DISABLED
+}
+
+model SourceHealthCheck {
+  id          String   @id @default(uuid())
+  sourceId    String
+  status      HealthStatus
+  latencyMs   Int?
+  error       String?
+  checkedAt   DateTime @default(now())
+
+  source      Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId])
+  @@index([checkedAt])
+  @@map("source_health_checks")
+}
+
+enum HealthStatus {
+  HEALTHY
+  DEGRADED
+  UNHEALTHY
+  UNKNOWN
+}
+
+// ============================================
+// Company & Recruiter Intelligence
+// ============================================
+
+model Company {
+  id            String   @id @default(uuid())
+  name          String
+  website       String?
+  country       String?
+  regions       String[]
+  type          CompanyType?
+  specialisms   String[]
+  score         Float    @default(0)
+  provenance    Json     @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  opportunities Opportunity[]
+  recruiters    Recruiter[]
+  emails        RecruiterEmail[]
+
+  @@index([name])
+  @@index([country])
+  @@index([type])
+  @@map("companies")
+}
+
+enum CompanyType {
+  CLOUD_CONSULTANCY
+  SYSTEMS_INTEGRATOR
+  PROFESSIONAL_SERVICES
+  SPECIALIST_TECH_CONSULTANCY
+  MANAGED_SERVICES
+  DELIVERY_PARTNER
+  DIRECT_CLIENT
+  RECRUITMENT_AGENCY
+  OTHER
+}
+
+model Recruiter {
+  id                  String   @id @default(uuid())
+  companyId           String?
+  name                String
+  title               String?
+  specialisms         String[]
+  region              String?
+  publicProfileUrl    String?
+  relationshipStatus  RelationshipStatus @default(UNKNOWN)
+  lastContact         DateTime?
+  responseHistory     Json     @default("[]")
+  opportunityHistory  Json     @default("[]")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  company             Company?   @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  opportunities       Opportunity[]
+  emails              RecruiterEmail[]
+
+  @@index([companyId])
+  @@index([name])
+  @@index([region])
+  @@map("recruiters")
+}
+
+enum RelationshipStatus {
+  UNKNOWN
+  CONTACTED
+  RESPONDED
+  ENGAGED
+  PARTNER
+  DO_NOT_CONTACT
+}
+
+model RecruiterEmail {
+  id                  String   @id @default(uuid())
+  recruiterId         String?
+  companyId           String?
+  email               String
+  emailType           EmailType
+  verified            Boolean  @default(false)
+  verificationSource  String?
+  verifiedAt          DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  recruiter           Recruiter? @relation(fields: [recruiterId], references: [id], onDelete: Cascade)
+  company             Company?   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([email])
+  @@index([recruiterId])
+  @@index([companyId])
+  @@index([verified])
+  @@map("recruiter_emails")
+}
+
+enum EmailType {
+  PERSONAL
+  GENERIC
+  TEAM
+  COMPANY
+  INFERRED
+}
+
+// ============================================
+// Opportunities
+// ============================================
+
+model Opportunity {
+  id                  String           @id @default(uuid())
+  sourceId            String
+  externalId          String
+  url                 String
+  title               String
+  companyId           String?
+  recruiterId         String?
+  postedAt            DateTime?
+  discoveredAt        DateTime         @default(now())
+  contractType        ContractType?
+  duration            String?
+  remotePolicy        RemotePolicy?
+  location            String?
+  language            String?
+  clearance           ClearanceLevel?
+  workAuthorisation   WorkAuthorisation?
+  originalRate        Float?
+  originalCurrency    String?
+  ratePeriod          RatePeriod?
+  zarRate             Float?
+  fxSource            String?
+  fxTimestamp         DateTime?
+  scores              Json             @default("{}")
+  status              OpportunityStatus @default(DISCOVERED)
+  eligibilityNotes    String?
+  fitScore            Float?
+  reasons             String[]
+  gaps                String[]
+  provenance          Json             @default("{}")
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  source              Source           @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  company             Company?         @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  recruiter           Recruiter?       @relation(fields: [recruiterId], references: [id], onDelete: SetNull)
+  outreachDrafts      OutreachDraft[]
+
+  @@unique([sourceId, externalId])
+  @@index([sourceId])
+  @@index([companyId])
+  @@index([recruiterId])
+  @@index([status])
+  @@index([discoveredAt])
+  @@index([fitScore])
+  @@map("opportunities")
+}
+
+enum ContractType {
+  FREELANCE
+  CONTRACT
+  SOW
+  PROJECT
+  CONSULTING
+  PERMANENT
+  UNKNOWN
+}
+
+enum RemotePolicy {
+  FULLY_REMOTE
+  REMOTE_FIRST
+  HYBRID
+  ONSITE
+  UNKNOWN
+}
+
+enum ClearanceLevel {
+  NONE
+  BASIC
+  ENHANCED
+  SECURITY_CLEARANCE
+  UNKNOWN
+}
+
+enum WorkAuthorisation {
+  ANY
+  SPECIFIC_COUNTRIES
+  VISA_REQUIRED
+  CITIZENSHIP_REQUIRED
+  UNKNOWN
+}
+
+enum RatePeriod {
+  HOURLY
+  DAILY
+  WEEKLY
+  MONTHLY
+  ANNUAL
+  PROJECT
+  UNKNOWN
+}
+
+enum OpportunityStatus {
+  DISCOVERED
+  VALIDATED
+  SCORED
+  ELIGIBLE
+  INELIGIBLE
+  ARCHIVED
+  APPLIED
+  WON
+  LOST
+}
+
+// ============================================
+// BIDOPS & Outreach
+// ============================================
+
+model OutreachDraft {
+  id              String           @id @default(uuid())
+  targetType      TargetType
+  targetId        String
+  recipientEmail  String
+  greetingMode    GreetingMode
+  subject         String
+  body            String
+  evidenceIds     String[]
+  attachmentIds   String[]
+  promptVersion   String
+  status          DraftStatus      @default(DRAFT)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  opportunity     Opportunity?     @relation(fields: [targetId], references: [id], onDelete: SetNull)
+  approval        OutreachApproval?
+  emailSend       EmailSend?
+
+  @@index([targetType, targetId])
+  @@index([status])
+  @@map("outreach_drafts")
+}
+
+enum TargetType {
+  RECRUITER
+  COMPANY
+  OPPORTUNITY
+}
+
+enum GreetingMode {
+  FIRST_NAME
+  COMPANY_TEAM
+  GENERIC
+}
+
+enum DraftStatus {
+  DRAFT
+  VALIDATED
+  AWAITING_APPROVAL
+  APPROVED
+  REJECTED
+  QUEUED
+  SENDING
+  SENT
+  FAILED
+}
+
+model OutreachApproval {
+  id        String         @id @default(uuid())
+  draftId   String         @unique
+  decision  ApprovalDecision
+  userId    String
+  timestamp DateTime       @default(now())
+  notes     String?
+
+  draft     OutreachDraft  @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([draftId])
+  @@index([userId])
+  @@map("outreach_approvals")
+}
+
+enum ApprovalDecision {
+  APPROVED
+  REJECTED
+}
+
+model EmailSend {
+  id              String       @id @default(uuid())
+  draftId         String       @unique
+  graphMessageId  String?
+  idempotencyKey  String       @unique
+  status          SendStatus   @default(PENDING)
+  sentAt          DateTime?
+  error           String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  draft           OutreachDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+
+  @@index([draftId])
+  @@index([idempotencyKey])
+  @@index([status])
+  @@map("email_sends")
+}
+
+enum SendStatus {
+  PENDING
+  QUEUED
+  SENDING
+  SENT
+  FAILED
+  RETRY
+}
+
+// ============================================
+// Reply Intelligence
+// ============================================
+
+model EmailThread {
+  id                  String   @id @default(uuid())
+  providerThreadId    String   @unique
+  participants        Json     @default("[]")
+  linkedRecruiterId   String?
+  linkedCompanyId     String?
+  linkedOpportunityId String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  recruiter           Recruiter?   @relation(fields: [linkedRecruiterId], references: [id], onDelete: SetNull)
+  company             Company?     @relation(fields: [linkedCompanyId], references: [id], onDelete: SetNull)
+  opportunity         Opportunity? @relation(fields: [linkedOpportunityId], references: [id], onDelete: SetNull)
+  replies             Reply[]
+
+  @@index([providerThreadId])
+  @@index([linkedRecruiterId])
+  @@index([linkedCompanyId])
+  @@index([linkedOpportunityId])
+  @@map("email_threads")
+}
+
+model Reply {
+  id              String            @id @default(uuid())
+  threadId        String
+  graphMessageId  String            @unique
+  receivedAt      DateTime          @default(now())
+  classification  ReplyClassification @default(UNKNOWN)
+  extractedData   Json              @default("{}")
+  confidence      Float             @default(0)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  thread          EmailThread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  followUps       FollowUp[]
+
+  @@index([threadId])
+  @@index([classification])
+  @@index([receivedAt])
+  @@map("replies")
+}
+
+enum ReplyClassification {
+  INTERESTED
+  OPPORTUNITY
+  REQUEST_CV
+  REQUEST_PROFILE
+  REQUEST_RATE
+  REQUEST_CALL
+  NOT_SUITABLE
+  FUTURE_OPPORTUNITY
+  OUT_OF_OFFICE
+  REJECTED
+  DO_NOT_CONTACT
+  UNKNOWN
+}
+
+model FollowUp {
+  id        String        @id @default(uuid())
+  targetId  String
+  dueAt     DateTime
+  draftId   String?
+  status    FollowUpStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  reply     Reply?        @relation(fields: [draftId], references: [id], onDelete: SetNull)
+
+  @@index([targetId])
+  @@index([dueAt])
+  @@index([status])
+  @@map("follow_ups")
+}
+
+enum FollowUpStatus {
+  PENDING
+  DRAFTED
+  APPROVED
+  SENT
+  COMPLETED
+  CANCELLED
+}
+
+// ============================================
+// Audit & Observability
+// ============================================
+
+model AuditEvent {
+  id          String   @id @default(uuid())
+  actor       String
+  action      String
+  entityType  String
+  entityId    String
+  timestamp   DateTime @default(now())
+  metadata    Json     @default("{}")
+
+  user        User?    @relation(fields: [actor], references: [id], onDelete: SetNull)
+
+  @@index([actor])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([timestamp])
+  @@map("audit_events")
+}

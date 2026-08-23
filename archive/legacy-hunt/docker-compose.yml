@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  hunt-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hunt-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=postgresql://hunt_user:hunt_password@postgres:5432/hunt_db
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GRAPH_CLIENT_ID=${GRAPH_CLIENT_ID}
+      - GRAPH_CLIENT_SECRET=${GRAPH_CLIENT_SECRET}
+      - GRAPH_TENANT_ID=${GRAPH_TENANT_ID}
+      - EMAIL_FROM=${EMAIL_FROM}
+      - EMAIL_TO=${EMAIL_TO}
+      - LOG_LEVEL=info
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hunt-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: hunt-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=hunt_user
+      - POSTGRES_PASSWORD=hunt_password
+      - POSTGRES_DB=hunt_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - hunt-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hunt_user -d hunt_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+
+networks:
+  hunt-network:
+    driver: bridge
