@@ -955,3 +955,41 @@ model AuditEvent {
   @@index([timestamp])
   @@map("audit_events")
 }
+
+// ============================================
+// Procurement Intelligence (Sprint 6, docs-pack/docs/13)
+// ============================================
+
+// "Discovery and intelligence features, not autonomous bid submission.
+// Human approval is required for any external response." Nothing in this
+// build ever writes to a procurement portal — this model only records
+// what was found.
+enum ProcurementStatus {
+  DISCOVERED
+  REVIEWED
+  PURSUING
+  NOT_PURSUING
+  CLOSED
+}
+
+model ProcurementOpportunity {
+  id                    String            @id @default(uuid())
+  tenantId              String            @default("default")
+  buyer                 String
+  procurementPortal     String
+  closingDate           DateTime?
+  scope                 String
+  eligibility           String?
+  frameworkDuration     String?
+  supplierRequirements  String?
+  sourceUrl             String
+  status                ProcurementStatus @default(DISCOVERED)
+  discoveredAt          DateTime          @default(now())
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([closingDate])
+  @@map("procurement_opportunities")
+}

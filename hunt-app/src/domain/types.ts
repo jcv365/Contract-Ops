@@ -679,3 +679,32 @@ export interface Evidence {
   createdAt: Date;
   updatedAt: Date;
 }
+
+// ============================================
+// Procurement Intelligence (Sprint 6, docs-pack/docs/13)
+// ============================================
+
+export enum ProcurementStatus {
+  DISCOVERED = 'DISCOVERED',
+  REVIEWED = 'REVIEWED',
+  PURSUING = 'PURSUING',
+  NOT_PURSUING = 'NOT_PURSUING',
+  CLOSED = 'CLOSED',
+}
+
+export interface ProcurementOpportunity {
+  id: UUID;
+  tenantId: string;
+  buyer: string;
+  procurementPortal: string;
+  closingDate?: Date;
+  scope: string;
+  eligibility?: string;
+  frameworkDuration?: string;
+  supplierRequirements?: string;
+  sourceUrl: string;
+  status: ProcurementStatus;
+  discoveredAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
