@@ -10,6 +10,8 @@ import { registerAdapters } from './modules/source-adapters';
 import { sourcesRouter } from './api/routes/sources';
 import { huntRouter } from './api/routes/hunt';
 import { opportunitiesRouter } from './api/routes/opportunities';
+import { recruitersRouter } from './api/routes/recruiters';
+import { companiesRouter } from './api/routes/companies';
 
 const app = express();
 
@@ -43,6 +45,8 @@ app.get('/health', (req, res) => {
 app.use('/sources', sourcesRouter);
 app.use('/hunt', huntRouter);
 app.use('/opportunities', opportunitiesRouter);
+app.use('/recruiters', recruitersRouter);
+app.use('/companies', companiesRouter);
 
 // docs-pack/docs/15: "reject unknown unsafe input" — a ZodError becomes a
 // 400 with the validation detail; anything else is an unhandled 500,
