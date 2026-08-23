@@ -1,5 +1,10 @@
-// HUNT Contract Acquisition OS - Phase 1 Database Schema
-// Generated from Phase 1 Data Model specifications
+// HUNT Contract Acquisition OS — Phase 1 Database Schema
+//
+// Repaired in Sprint 1 from the original scaffold, which failed
+// `prisma validate` (5 broken/missing relations — see AUDIT-REPORT.md §2),
+// and extended per the Hardening Addendum (docs-pack/docs/24-29): a 5-state
+// evidence model, computed quality-gate statuses (ACTIONABLE/EMAIL_READY/
+// OUTREACH_READY), conflict preservation, and search-run coverage tracking.
 
 generator client {
   provider = "prisma-client-js"
@@ -15,55 +20,71 @@ datasource db {
 // ============================================
 
 model User {
-  id            String    @id @default(uuid())
-  profileId     String?   @unique
-  settings      Json      @default("{}")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id          String   @id @default(uuid())
+  profileId   String?  @unique
+  settings    Json     @default("{}")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  profile       Profile?
-  evidence      Evidence[]
-  approvals     OutreachApproval[]
-  auditEvents   AuditEvent[]
+  profile     Profile?
+  approvals   OutreachApproval[]
+  auditEvents AuditEvent[]
+  oauthTokens OAuthToken[]
 
   @@map("users")
 }
 
 model Profile {
-  id                String   @id @default(uuid())
-  userId            String   @unique
-  headline          String?
-  summary           String?
-  skills            String[]
-  certifications    String[]
-  domains           String[]
-  projects          Json     @default("[]")
-  achievements      Json     @default("[]")
-  contractPreferences Json   @default("{}")
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  headline            String?
+  summary             String?
+  skills              String[]
+  certifications      String[]
+  domains             String[]
+  projects            Json     @default("[]")
+  achievements        Json     @default("[]")
+  contractPreferences Json     @default("{}")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  evidence          Evidence[]
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  evidence Evidence[]
 
   @@map("profiles")
 }
 
-model Evidence {
-  id              String   @id @default(uuid())
-  profileId       String
-  claim           String
-  source          String
-  sourceLocation  String?
-  confidence      Float    @default(0.5)
-  approved        Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+// Evidence state per docs-pack/docs/24-AI-ANTI-HALLUCINATION-CONTROLS.md.
+// Only VERIFIED and SOURCE_REPORTED may be presented as factual claims.
+// INFERRED must be rendered with a visible label. UNKNOWN must stay unknown.
+// CONFLICTED means sources disagree — see ClaimConflict, requires human
+// resolution before it can be cited. Replaces the original `approved
+// Boolean`, which could not represent "inferred but labelled" or
+// "conflicting sources", both of which the addendum requires.
+enum EvidenceState {
+  VERIFIED
+  SOURCE_REPORTED
+  INFERRED
+  UNKNOWN
+  CONFLICTED
+}
 
-  profile         Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  outreachDrafts  OutreachDraft[] @relation("EvidenceToOutreachDraft")
+model Evidence {
+  id             String        @id @default(uuid())
+  profileId      String
+  claim          String
+  source         String
+  sourceLocation String?
+  confidence     Float         @default(0.5)
+  state          EvidenceState @default(UNKNOWN)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  profile    Profile         @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  draftLinks DraftEvidence[]
 
   @@index([profileId])
+  @@index([state])
   @@map("evidence")
 }
 
@@ -72,36 +93,37 @@ model Evidence {
 // ============================================
 
 model Source {
-  id                    String   @id @default(uuid())
-  sourceId              String   @unique
-  name                  String
-  type                  SourceType
-  url                   String?
-  country               String?
-  region                String?
-  global                Boolean  @default(false)
-  local                 Boolean  @default(false)
-  apiAvailable          Boolean  @default(false)
-  rssAvailable          Boolean  @default(false)
-  browserSearchAvailable Boolean @default(false)
-  mcpAvailable          Boolean  @default(false)
-  adapterStatus         AdapterStatus @default(PENDING)
-  reliabilityScore      Float    @default(0.5)
-  contractRelevance     Float    @default(0.5)
-  remoteRelevance       Float    @default(0.5)
-  internationalRelevance Float   @default(0.5)
-  termsUrl              String?
-  licence               String?
-  attributionRequired   Boolean  @default(false)
-  rateLimit             Int?
-  lastHealthCheck       DateTime?
-  lastSuccessfulSearch  DateTime?
-  notes                 String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                     String        @id @default(uuid())
+  sourceId               String        @unique
+  name                   String
+  type                   SourceType
+  url                    String?
+  country                String?
+  region                 String?
+  global                 Boolean       @default(false)
+  local                  Boolean       @default(false)
+  apiAvailable           Boolean       @default(false)
+  rssAvailable           Boolean       @default(false)
+  browserSearchAvailable Boolean       @default(false)
+  mcpAvailable           Boolean       @default(false)
+  adapterStatus          AdapterStatus @default(PENDING)
+  reliabilityScore       Float         @default(0.5)
+  contractRelevance      Float         @default(0.5)
+  remoteRelevance        Float         @default(0.5)
+  internationalRelevance Float         @default(0.5)
+  termsUrl               String?
+  licence                String?
+  attributionRequired    Boolean       @default(false)
+  rateLimit              Int?
+  lastHealthCheck        DateTime?
+  lastSuccessfulSearch   DateTime?
+  notes                  String?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
 
-  opportunities         Opportunity[]
-  healthChecks          SourceHealthCheck[]
+  opportunities Opportunity[]
+  healthChecks  SourceHealthCheck[]
+  coverage      SourceCoverage[]
 
   @@index([sourceId])
   @@index([type])
@@ -131,14 +153,14 @@ enum AdapterStatus {
 }
 
 model SourceHealthCheck {
-  id          String   @id @default(uuid())
-  sourceId    String
-  status      HealthStatus
-  latencyMs   Int?
-  error       String?
-  checkedAt   DateTime @default(now())
+  id        String       @id @default(uuid())
+  sourceId  String
+  status    HealthStatus
+  latencyMs Int?
+  error     String?
+  checkedAt DateTime     @default(now())
 
-  source      Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  source Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
 
   @@index([sourceId])
   @@index([checkedAt])
@@ -153,26 +175,101 @@ enum HealthStatus {
 }
 
 // ============================================
+// Search runs & coverage
+//
+// docs-pack/docs/01 requires showing countries/regions/sources searched,
+// failed sources, last search time and a coverage percentage. Rule 12
+// forbids reporting coverage that wasn't actually searched. Doc 25 requires
+// the percentage be computed from actual successful searches, not the
+// configured source list. Nothing in the original scaffold could prove
+// what was searched — this is the single biggest schema gap it had.
+// ============================================
+
+enum SearchRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model SearchRun {
+  id                      String          @id @default(uuid())
+  tenantId                String          @default("default")
+  startedAt               DateTime        @default(now())
+  completedAt             DateTime?
+  status                  SearchRunStatus @default(RUNNING)
+  countriesConfigured     String[]
+  regionsConfigured       String[]
+  sourcesConfigured       String[]
+  sourcesSucceeded        String[]
+  sourcesFailed           String[]
+  coveragePercent         Float?
+  totalOpportunitiesFound Int             @default(0)
+  totalOpportunitiesNew   Int             @default(0)
+  errorSummary            Json            @default("{}")
+  createdAt               DateTime        @default(now())
+
+  coverage SourceCoverage[]
+
+  @@index([tenantId])
+  @@index([startedAt])
+  @@index([status])
+  @@map("search_runs")
+}
+
+model SourceCoverage {
+  id          String  @id @default(uuid())
+  searchRunId String
+  sourceId    String
+  attempted   Boolean @default(true)
+  succeeded   Boolean @default(false)
+  resultCount Int     @default(0)
+  latencyMs   Int?
+  error       String?
+
+  searchRun SearchRun @relation(fields: [searchRunId], references: [id], onDelete: Cascade)
+  source    Source    @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([searchRunId])
+  @@index([sourceId])
+  @@map("source_coverage")
+}
+
+// ============================================
 // Company & Recruiter Intelligence
 // ============================================
 
+// Company-side quality gate per docs-pack/docs/27-REAL-DATA-QUALITY-GATES.md:
+// OUTREACH_READY requires a verified company, an evidence-backed targeting
+// reason, a selected proposition and a valid contact channel. This is
+// computed by the company-intelligence service, not settable directly.
+enum CompanyReadiness {
+  NOT_READY
+  OUTREACH_READY
+}
+
 model Company {
-  id            String   @id @default(uuid())
-  name          String
-  website       String?
-  country       String?
-  regions       String[]
-  type          CompanyType?
-  specialisms   String[]
-  score         Float    @default(0)
-  provenance    Json     @default("{}")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                      String           @id @default(uuid())
+  tenantId                String           @default("default")
+  name                    String           @unique
+  website                 String?
+  country                 String?
+  regions                 String[]
+  type                    CompanyType?
+  specialisms             String[]
+  score                   Float            @default(0)
+  outreachReadiness       CompanyReadiness @default(NOT_READY)
+  outreachReadinessReason String?
+  provenance              Json             @default("{}")
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
 
-  opportunities Opportunity[]
-  recruiters    Recruiter[]
-  emails        RecruiterEmail[]
+  opportunities  Opportunity[]
+  recruiters     Recruiter[]
+  emails         RecruiterEmail[]
+  emailThreads   EmailThread[]
+  outreachDrafts OutreachDraft[]
 
+  @@index([tenantId])
   @@index([name])
   @@index([country])
   @@index([type])
@@ -191,25 +288,39 @@ enum CompanyType {
   OTHER
 }
 
+// Recruiter-side quality gate: EMAIL_READY requires a verified company, a
+// verified recruiter identity when named, and an email directly supported
+// by reliable evidence or a verification provider with a timestamp.
+enum RecruiterReadiness {
+  NOT_READY
+  EMAIL_READY
+}
+
 model Recruiter {
-  id                  String   @id @default(uuid())
-  companyId           String?
-  name                String
-  title               String?
-  specialisms         String[]
-  region              String?
-  publicProfileUrl    String?
-  relationshipStatus  RelationshipStatus @default(UNKNOWN)
-  lastContact         DateTime?
-  responseHistory     Json     @default("[]")
-  opportunityHistory  Json     @default("[]")
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                      String             @id @default(uuid())
+  tenantId                String             @default("default")
+  companyId               String?
+  name                    String
+  title                   String?
+  specialisms             String[]
+  region                  String?
+  publicProfileUrl        String?
+  relationshipStatus      RelationshipStatus @default(UNKNOWN)
+  outreachReadiness       RecruiterReadiness @default(NOT_READY)
+  outreachReadinessReason String?
+  lastContact             DateTime?
+  responseHistory         Json               @default("[]")
+  opportunityHistory      Json               @default("[]")
+  createdAt                DateTime          @default(now())
+  updatedAt                DateTime          @updatedAt
 
-  company             Company?   @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  opportunities       Opportunity[]
-  emails              RecruiterEmail[]
+  company        Company?        @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  opportunities  Opportunity[]
+  emails         RecruiterEmail[]
+  emailThreads   EmailThread[]
+  outreachDrafts OutreachDraft[]
 
+  @@index([tenantId])
   @@index([companyId])
   @@index([name])
   @@index([region])
@@ -225,20 +336,25 @@ enum RelationshipStatus {
   DO_NOT_CONTACT
 }
 
+// EmailType.INFERRED exists so a guessed address can be recorded (for audit
+// visibility) while being structurally excluded from ever reaching
+// EMAIL_READY — enforced in the recruiter-intelligence service, never by
+// deleting the guess silently. "Never guess an email address" (ADR-003) is
+// about what may be SENT TO, not what may be recorded as rejected.
 model RecruiterEmail {
-  id                  String   @id @default(uuid())
-  recruiterId         String?
-  companyId           String?
-  email               String
-  emailType           EmailType
-  verified            Boolean  @default(false)
-  verificationSource  String?
-  verifiedAt          DateTime?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                 String    @id @default(uuid())
+  recruiterId        String?
+  companyId          String?
+  email              String
+  emailType          EmailType
+  verified           Boolean   @default(false)
+  verificationSource String?
+  verifiedAt         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  recruiter           Recruiter? @relation(fields: [recruiterId], references: [id], onDelete: Cascade)
-  company             Company?   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  recruiter Recruiter? @relation(fields: [recruiterId], references: [id], onDelete: Cascade)
+  company   Company?   @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([email])
   @@index([recruiterId])
@@ -259,49 +375,96 @@ enum EmailType {
 // Opportunities
 // ============================================
 
-model Opportunity {
-  id                  String           @id @default(uuid())
-  sourceId            String
-  externalId          String
-  url                 String
-  title               String
-  companyId           String?
-  recruiterId         String?
-  postedAt            DateTime?
-  discoveredAt        DateTime         @default(now())
-  contractType        ContractType?
-  duration            String?
-  remotePolicy        RemotePolicy?
-  location            String?
-  language            String?
-  clearance           ClearanceLevel?
-  workAuthorisation   WorkAuthorisation?
-  originalRate        Float?
-  originalCurrency    String?
-  ratePeriod          RatePeriod?
-  zarRate             Float?
-  fxSource            String?
-  fxTimestamp         DateTime?
-  scores              Json             @default("{}")
-  status              OpportunityStatus @default(DISCOVERED)
-  eligibilityNotes    String?
-  fitScore            Float?
-  reasons             String[]
-  gaps                String[]
-  provenance          Json             @default("{}")
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
+// Cross-source deduplication. `@@unique([sourceId, externalId])` on
+// Opportunity only dedupes *within* one source; two sources describing the
+// same real-world opportunity need clustering under a fingerprint.
+model OpportunityCluster {
+  id                     String   @id @default(uuid())
+  canonicalOpportunityId String?
+  fingerprint            String
+  createdAt              DateTime @default(now())
 
-  source              Source           @relation(fields: [sourceId], references: [id], onDelete: Cascade)
-  company             Company?         @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  recruiter           Recruiter?       @relation(fields: [recruiterId], references: [id], onDelete: SetNull)
-  outreachDrafts      OutreachDraft[]
+  members Opportunity[]
+
+  @@index([fingerprint])
+  @@map("opportunity_clusters")
+}
+
+// ACTIONABLE per docs-pack/docs/27: known source/URL, successful retrieval,
+// evidence of open status, contract status, remote status, completed
+// hard-filter evaluation, evidence-backed fit score. Anything short of that
+// is REVIEW/EXCLUDED/UNKNOWN. This is computed by the eligibility/scoring
+// services — never set directly by an adapter or the AI layer — and is
+// orthogonal to OpportunityStatus (the lifecycle state machine below).
+enum Actionability {
+  ACTIONABLE
+  REVIEW
+  EXCLUDED
+  UNKNOWN
+}
+
+model Opportunity {
+  id                String             @id @default(uuid())
+  tenantId          String             @default("default")
+  sourceId          String
+  externalId        String
+  url               String
+  title             String
+  companyId         String?
+  recruiterId       String?
+  clusterId         String?
+  postedAt          DateTime?
+  discoveredAt      DateTime           @default(now())
+  contractType      ContractType?
+  duration          String?
+  remotePolicy      RemotePolicy?
+  location          String?
+  language          String?
+  clearance         ClearanceLevel?
+  workAuthorisation WorkAuthorisation?
+
+  // Rate handling per doc 27: numeric value + currency + period, or an
+  // explicit unknown, always with a source. ZAR conversion never replaces
+  // the original — originalRate/originalCurrency/ratePeriod/rateSource are
+  // the source of truth; zarRate/fxSource/fxTimestamp/fxRateId are a
+  // derived, separately-sourced conversion (see FxRate below).
+  originalRate     Float?
+  originalCurrency String?
+  ratePeriod       RatePeriod?
+  rateSource       String?
+  zarRate          Float?
+  fxSource         String?
+  fxTimestamp      DateTime?
+  fxRateId         String?
+
+  scores           Json               @default("{}")
+  status           OpportunityStatus  @default(DISCOVERED)
+  actionability    Actionability      @default(UNKNOWN)
+  actionabilityReason String?
+  eligibilityNotes String?
+  fitScore         Float?
+  reasons          String[]
+  gaps             String[]
+  provenance       Json               @default("{}")
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  source         Source              @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  company        Company?            @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  recruiter      Recruiter?          @relation(fields: [recruiterId], references: [id], onDelete: SetNull)
+  cluster        OpportunityCluster? @relation(fields: [clusterId], references: [id], onDelete: SetNull)
+  fxRate         FxRate?             @relation(fields: [fxRateId], references: [id], onDelete: SetNull)
+  outreachDrafts OutreachDraft[]
+  emailThreads   EmailThread[]
 
   @@unique([sourceId, externalId])
+  @@index([tenantId])
   @@index([sourceId])
   @@index([companyId])
   @@index([recruiterId])
+  @@index([clusterId])
   @@index([status])
+  @@index([actionability])
   @@index([discoveredAt])
   @@index([fitScore])
   @@map("opportunities")
@@ -363,29 +526,159 @@ enum OpportunityStatus {
   LOST
 }
 
+// Timestamped, sourced FX rate cache (rule 11 / doc 12). Opportunity keeps
+// its own zarRate/fxSource/fxTimestamp as a snapshot of the rate at the
+// time it was scored (so historical opportunities don't silently change
+// value as rates move), while fxRateId traces back to the exact rate used.
+model FxRate {
+  id           String   @id @default(uuid())
+  fromCurrency String
+  toCurrency   String   @default("ZAR")
+  rate         Float
+  source       String
+  fetchedAt    DateTime @default(now())
+
+  opportunities Opportunity[]
+
+  @@index([fromCurrency, toCurrency, fetchedAt])
+  @@map("fx_rates")
+}
+
 // ============================================
 // BIDOPS & Outreach
 // ============================================
 
-model OutreachDraft {
-  id              String           @id @default(uuid())
-  targetType      TargetType
-  targetId        String
-  recipientEmail  String
-  greetingMode    GreetingMode
-  subject         String
-  body            String
-  evidenceIds     String[]
-  attachmentIds   String[]
-  promptVersion   String
-  status          DraftStatus      @default(DRAFT)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+// CV vs company-capability-profile selection (docs-pack/docs/07). Validated
+// for type/size/ownership before send per doc 09.
+enum AttachmentKind {
+  CV
+  COMPANY_PROFILE
+  OTHER
+}
 
-  opportunity     Opportunity?     @relation(fields: [targetId], references: [id], onDelete: SetNull)
+model Attachment {
+  id         String         @id @default(uuid())
+  kind       AttachmentKind
+  fileName   String
+  mimeType   String
+  sizeBytes  Int
+  storageRef String
+  checksum   String?
+  ownerId    String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  draftLinks DraftAttachment[]
+
+  @@index([kind])
+  @@map("attachments")
+}
+
+model DraftAttachment {
+  id           String @id @default(uuid())
+  draftId      String
+  attachmentId String
+
+  draft      OutreachDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  attachment Attachment    @relation(fields: [attachmentId], references: [id], onDelete: Restrict)
+
+  @@unique([draftId, attachmentId])
+  @@index([draftId])
+  @@index([attachmentId])
+  @@map("draft_attachments")
+}
+
+// Every BIDOPS claim must trace to evidence (rule 9, ADR-004). The original
+// scaffold used a bare `evidenceIds String[]` with no referential
+// integrity; this join table makes a cited-but-deleted or nonexistent
+// evidence row impossible.
+model DraftEvidence {
+  id         String @id @default(uuid())
+  draftId    String
+  evidenceId String
+
+  draft    OutreachDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  evidence Evidence      @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+
+  @@unique([draftId, evidenceId])
+  @@index([draftId])
+  @@index([evidenceId])
+  @@map("draft_evidence")
+}
+
+// docs-pack/docs/14 and /17 mandate recording prompt version. Content-hash
+// versioning: `version` is a short hash of `content`, so a prompt file
+// under docs-pack/prompts/ can never be edited without every draft that
+// used the old wording remaining traceable to the exact text that produced it.
+model PromptTemplate {
+  id        String   @id @default(uuid())
+  name      String
+  version   String
+  content   String
+  createdAt DateTime @default(now())
+
+  @@unique([name, version])
+  @@map("prompt_templates")
+}
+
+// Result of prompts/email-review.md (14 checks) and
+// prompts/hallucination-check.md. A FAIL blocks DRAFT -> VALIDATED.
+enum ValidationCheckResult {
+  PASS
+  FAIL
+}
+
+model DraftValidation {
+  id              String                @id @default(uuid())
+  draftId         String
+  checkName       String
+  result          ValidationCheckResult
+  issues          Json                  @default("[]")
+  promptVersionId String?
+  modelProvider   String?
+  modelName       String?
+  createdAt       DateTime              @default(now())
+
+  draft OutreachDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+
+  @@index([draftId])
+  @@map("draft_validations")
+}
+
+// targetType/targetId are kept as a human-readable, always-populated pair
+// for display and audit; opportunityId/recruiterId/companyId are the real
+// referential-integrity FKs, exactly one of which is set depending on
+// targetType. The original scaffold hard-FK'd targetId to Opportunity only,
+// which made a recruiter- or company-targeted draft (the entire Market
+// Outreach Hunt engine) impossible to persist correctly.
+model OutreachDraft {
+  id             String       @id @default(uuid())
+  tenantId       String       @default("default")
+  targetType     TargetType
+  targetId       String
+  opportunityId  String?
+  recruiterId    String?
+  companyId      String?
+  recipientEmail String
+  greetingMode   GreetingMode
+  subject        String
+  body           String
+  promptVersion  String
+  status         DraftStatus  @default(DRAFT)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  opportunity     Opportunity?      @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  recruiter       Recruiter?        @relation(fields: [recruiterId], references: [id], onDelete: SetNull)
+  company         Company?          @relation(fields: [companyId], references: [id], onDelete: SetNull)
   approval        OutreachApproval?
   emailSend       EmailSend?
+  draftEvidence   DraftEvidence[]
+  draftAttachments DraftAttachment[]
+  validations     DraftValidation[]
+  followUps       FollowUp[]
 
+  @@index([tenantId])
   @@index([targetType, targetId])
   @@index([status])
   @@map("outreach_drafts")
@@ -416,15 +709,15 @@ enum DraftStatus {
 }
 
 model OutreachApproval {
-  id        String         @id @default(uuid())
-  draftId   String         @unique
+  id        String           @id @default(uuid())
+  draftId   String           @unique
   decision  ApprovalDecision
   userId    String
-  timestamp DateTime       @default(now())
+  timestamp DateTime         @default(now())
   notes     String?
 
-  draft     OutreachDraft  @relation(fields: [draftId], references: [id], onDelete: Cascade)
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  draft OutreachDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([draftId])
   @@index([userId])
@@ -437,17 +730,17 @@ enum ApprovalDecision {
 }
 
 model EmailSend {
-  id              String       @id @default(uuid())
-  draftId         String       @unique
-  graphMessageId  String?
-  idempotencyKey  String       @unique
-  status          SendStatus   @default(PENDING)
-  sentAt          DateTime?
-  error           String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  id             String     @id @default(uuid())
+  draftId        String     @unique
+  graphMessageId String?
+  idempotencyKey String     @unique
+  status         SendStatus @default(PENDING)
+  sentAt         DateTime?
+  error          String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
-  draft           OutreachDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  draft OutreachDraft @relation(fields: [draftId], references: [id], onDelete: Cascade)
 
   @@index([draftId])
   @@index([idempotencyKey])
@@ -464,12 +757,87 @@ enum SendStatus {
   RETRY
 }
 
+// OAuth tokens for Microsoft Graph, encrypted at rest (rule 16/doc 09).
+// Application code must encrypt with ENCRYPTION_KEY before writing here and
+// never log the plaintext token — enforced by the logger redaction added in
+// Sprint 0 plus never passing a raw token into a log call.
+enum OAuthProvider {
+  MICROSOFT_GRAPH
+}
+
+model OAuthToken {
+  id                    String        @id @default(uuid())
+  userId                String
+  provider              OAuthProvider @default(MICROSOFT_GRAPH)
+  scopes                String[]
+  encryptedAccessToken  String
+  encryptedRefreshToken String?
+  expiresAt             DateTime?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+  @@map("oauth_tokens")
+}
+
+// Suppression list — RelationshipStatus.DO_NOT_CONTACT and
+// ReplyClassification.DO_NOT_CONTACT are flags on existing records, but
+// nothing enforced them before a send. This table is checked by the
+// approval/send path as a hard gate, independent of any one record's status.
+enum SuppressionReason {
+  DO_NOT_CONTACT
+  BOUNCED
+  UNSUBSCRIBED
+  MANUAL
+}
+
+model Suppression {
+  id        String            @id @default(uuid())
+  email     String            @unique
+  domain    String?
+  reason    SuppressionReason
+  notes     String?
+  createdAt DateTime          @default(now())
+
+  @@index([domain])
+  @@map("suppressions")
+}
+
+// When two sources disagree on a field, doc 27 requires preserving both
+// values (never silently picking one) and marking the field CONFLICTED —
+// which is also reflected on the owning record via Evidence.state /
+// EvidenceState.CONFLICTED where the conflicting field is evidence-backed.
+enum ConflictStatus {
+  OPEN
+  RESOLVED
+}
+
+model ClaimConflict {
+  id            String         @id @default(uuid())
+  entityType    String
+  entityId      String
+  field         String
+  values        Json
+  status        ConflictStatus @default(OPEN)
+  resolvedValue Json?
+  resolvedBy    String?
+  resolvedAt    DateTime?
+  createdAt     DateTime       @default(now())
+
+  @@index([entityType, entityId])
+  @@index([status])
+  @@map("claim_conflicts")
+}
+
 // ============================================
 // Reply Intelligence
 // ============================================
 
 model EmailThread {
   id                  String   @id @default(uuid())
+  tenantId            String   @default("default")
   providerThreadId    String   @unique
   participants        Json     @default("[]")
   linkedRecruiterId   String?
@@ -478,11 +846,12 @@ model EmailThread {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  recruiter           Recruiter?   @relation(fields: [linkedRecruiterId], references: [id], onDelete: SetNull)
-  company             Company?     @relation(fields: [linkedCompanyId], references: [id], onDelete: SetNull)
-  opportunity         Opportunity? @relation(fields: [linkedOpportunityId], references: [id], onDelete: SetNull)
-  replies             Reply[]
+  recruiter   Recruiter?   @relation(fields: [linkedRecruiterId], references: [id], onDelete: SetNull)
+  company     Company?     @relation(fields: [linkedCompanyId], references: [id], onDelete: SetNull)
+  opportunity Opportunity? @relation(fields: [linkedOpportunityId], references: [id], onDelete: SetNull)
+  replies     Reply[]
 
+  @@index([tenantId])
   @@index([providerThreadId])
   @@index([linkedRecruiterId])
   @@index([linkedCompanyId])
@@ -491,18 +860,18 @@ model EmailThread {
 }
 
 model Reply {
-  id              String            @id @default(uuid())
-  threadId        String
-  graphMessageId  String            @unique
-  receivedAt      DateTime          @default(now())
-  classification  ReplyClassification @default(UNKNOWN)
-  extractedData   Json              @default("{}")
-  confidence      Float             @default(0)
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  id             String               @id @default(uuid())
+  threadId       String
+  graphMessageId String               @unique
+  receivedAt     DateTime             @default(now())
+  classification ReplyClassification  @default(UNKNOWN)
+  extractedData  Json                 @default("{}")
+  confidence     Float                @default(0)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
 
-  thread          EmailThread       @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  followUps       FollowUp[]
+  thread    EmailThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  followUps FollowUp[]
 
   @@index([threadId])
   @@index([classification])
@@ -525,16 +894,22 @@ enum ReplyClassification {
   UNKNOWN
 }
 
+// The original scaffold's `draftId` field actually pointed at Reply.id
+// (named wrong) and had no way to link a follow-up to its OutreachDraft at
+// all. Split into replyId (-> Reply, what triggered the follow-up) and
+// draftId (-> OutreachDraft, the follow-up's own draft once written).
 model FollowUp {
-  id        String        @id @default(uuid())
+  id        String         @id @default(uuid())
   targetId  String
   dueAt     DateTime
+  replyId   String?
   draftId   String?
   status    FollowUpStatus @default(PENDING)
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 
-  reply     Reply?        @relation(fields: [draftId], references: [id], onDelete: SetNull)
+  reply Reply?         @relation(fields: [replyId], references: [id], onDelete: SetNull)
+  draft OutreachDraft? @relation(fields: [draftId], references: [id], onDelete: SetNull)
 
   @@index([targetId])
   @@index([dueAt])
@@ -555,18 +930,26 @@ enum FollowUpStatus {
 // Audit & Observability
 // ============================================
 
+// `actor` is free text ("system" or a user id) per doc 17; the original
+// scaffold hard-FK'd it to User.id, which cannot hold "system" while the
+// column is required. actorUserId is the optional, real FK for when the
+// actor is in fact a user.
 model AuditEvent {
   id          String   @id @default(uuid())
+  tenantId    String   @default("default")
   actor       String
+  actorUserId String?
   action      String
   entityType  String
   entityId    String
   timestamp   DateTime @default(now())
   metadata    Json     @default("{}")
 
-  user        User?    @relation(fields: [actor], references: [id], onDelete: SetNull)
+  actorUser User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
 
+  @@index([tenantId])
   @@index([actor])
+  @@index([actorUserId])
   @@index([action])
   @@index([entityType, entityId])
   @@index([timestamp])

@@ -1,18 +1,30 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from './client';
 import { logger } from '../config/logger';
-import { SourceType, AdapterStatus } from '@prisma/client';
+import { SourceType, AdapterStatus, CompanyType } from '@prisma/client';
 
+// Sprint 0 decision (see AUDIT-REPORT.md conflict #1): the original seed
+// hard-coded a fabricated biography — named certifications, "200+
+// applications migrated", "40% cost reduction", a ZAR rate range — none of
+// it independently verifiable. docs-pack/docs/01 forbids hard-coding
+// unverified biography, and ADR-004 requires every claim trace to
+// evidence. This seed carries only configuration (the rule-12 coverage
+// matrix and the source registry). Real profile/evidence data is imported
+// separately, as UNKNOWN/SOURCE_REPORTED evidence pending verification —
+// BIDOPS has nothing to cite until then, which is the correct ADR-004
+// behaviour, not a defect.
 async function seed() {
   logger.info('Seeding database...');
 
-  // Create default user
   const user = await prisma.user.upsert({
     where: { id: 'default-user' },
     update: {},
     create: {
       id: 'default-user',
-      profileId: 'default-profile',
       settings: {
+        // This IS the rule-12 "worldwide coverage matrix" — CLAUDE.md rule
+        // 12 forbids reporting worldwide coverage unless this configured
+        // matrix was actually searched.
         hunt: {
           countries: ['ZA', 'GB', 'US', 'AU', 'CA', 'DE', 'NL', 'IE', 'AE', 'SG'],
           regions: ['EMEA', 'APAC', 'AMER'],
@@ -26,7 +38,6 @@ async function seed() {
         bidops: {
           defaultTone: 'PROFESSIONAL',
           maxEmailLength: 180,
-          requireEvidenceForClaims: true,
         },
         outreach: {
           requireApproval: true,
@@ -36,71 +47,32 @@ async function seed() {
     },
   });
 
-  // Create default profile
+  // Profile created empty and unlinked from the placeholder `profileId`
+  // string the original scaffold wrote (which never matched any real
+  // Profile.id, since it's a generated uuid) — real biography, skills and
+  // evidence are imported through the profile-import path (Sprint 3+),
+  // never hard-coded here.
   await prisma.profile.upsert({
     where: { userId: user.id },
     update: {},
     create: {
       userId: user.id,
-      headline: 'Principal Hybrid Cloud Architect | Azure | Enterprise Platform | FinOps',
-      summary: 'Senior cloud architect with 15+ years designing and delivering enterprise-scale hybrid cloud transformations across financial services, telecommunications, and government sectors.',
-      skills: [
-        'Azure', 'AWS', 'GCP', 'Hybrid Cloud', 'Enterprise Architecture',
-        'Infrastructure as Code', 'Terraform', 'Bicep', 'ARM',
-        'Kubernetes', 'AKS', 'EKS', 'GKE',
-        'FinOps', 'Cloud Economics', 'Cost Optimization',
-        'Networking', 'Security', 'Identity', 'Governance',
-        'DevOps', 'CI/CD', 'GitOps', 'Platform Engineering',
-        'AI/ML Platform', 'Data Architecture', 'Migration',
-      ],
-      certifications: [
-        'Microsoft Certified: Azure Solutions Architect Expert',
-        'Microsoft Certified: DevOps Engineer Expert',
-        'HashiCorp Certified: Terraform Associate',
-        'CKA - Certified Kubernetes Administrator',
-        'TOGAF 9 Certified',
-        'AWS Certified Solutions Architect - Professional',
-      ],
-      domains: [
-        'Financial Services', 'Telecommunications', 'Government',
-        'Healthcare', 'Manufacturing', 'Retail',
-      ],
-      projects: [
-        {
-          name: 'Global Bank Hybrid Cloud Transformation',
-          role: 'Lead Architect',
-          duration: '18 months',
-          technologies: ['Azure', 'AKS', 'Terraform', 'Azure Arc'],
-          outcome: 'Migrated 200+ applications to hybrid cloud, 40% cost reduction',
-        },
-        {
-          name: 'Telco 5G Core on Azure',
-          role: 'Principal Architect',
-          duration: '12 months',
-          technologies: ['Azure', 'AKS', 'OpenShift', 'Networking'],
-          outcome: 'Designed carrier-grade 5G core architecture',
-        },
-      ],
-      achievements: [
-        'Designed and delivered 10+ enterprise cloud transformations',
-        'Achieved average 35% cloud cost optimization across engagements',
-        'Published author on cloud architecture patterns',
-        'Regular speaker at Azure and cloud conferences',
-      ],
-      contractPreferences: {
-        rateRangeZAR: { min: 2500, max: 5000 },
-        ratePeriod: 'DAILY',
-        currencies: ['ZAR', 'USD', 'GBP', 'EUR'],
-        preferredDuration: '6-12 months',
-        noticePeriod: '4 weeks',
-        travelWillingness: 'OCCASIONAL',
-        timezonePreference: 'GMT+2',
-      },
+      skills: [],
+      certifications: [],
+      domains: [],
+      projects: [],
+      achievements: [],
+      contractPreferences: {},
     },
   });
 
-  // Seed initial sources
-  const sources = [
+  // Per docs-pack/docs/22 (preferred source order: official API > official
+  // RSS > documented endpoint > permitted page access), only Jobicy and
+  // JobsCollider are enabled ACTIVE — both have confirmed official feeds.
+  // Career-Ops is a reuse *candidate* named in docs/21, not a confirmed
+  // live API this build has verified terms for, so it stays PENDING like
+  // the rest. "If uncertain, disable the adapter and document the issue."
+  const sources: Array<Parameters<typeof prisma.source.create>[0]['data']> = [
     {
       sourceId: 'career-ops',
       name: 'Career-Ops',
@@ -108,46 +80,46 @@ async function seed() {
       url: 'https://api.career-ops.com',
       global: true,
       apiAvailable: true,
-      adapterStatus: AdapterStatus.ACTIVE,
+      adapterStatus: AdapterStatus.PENDING,
       reliabilityScore: 0.9,
       contractRelevance: 0.8,
       remoteRelevance: 0.9,
       internationalRelevance: 0.85,
       rateLimit: 1000,
-      notes: 'Primary source for contract opportunities',
+      notes: 'Reuse candidate per docs/21 — terms/licensing not yet independently verified for this deployment.',
     },
     {
       sourceId: 'jobicy',
       name: 'Jobicy',
       type: SourceType.JOB_BOARD,
-      url: 'https://jobicy.com',
+      url: 'https://jobicy.com/api/v2/remote-jobs',
       global: true,
       apiAvailable: true,
       rssAvailable: true,
-      browserSearchAvailable: true,
       adapterStatus: AdapterStatus.ACTIVE,
       reliabilityScore: 0.85,
       contractRelevance: 0.75,
       remoteRelevance: 0.95,
       internationalRelevance: 0.9,
-      rateLimit: 500,
-      notes: 'Remote-first job board with API',
+      termsUrl: 'https://jobicy.com/jobs-rss-feed',
+      rateLimit: 60,
+      notes: 'Official public API, no auth required. Enabled per docs/22 preferred-source order.',
     },
     {
       sourceId: 'jobscollider',
       name: 'JobsCollider',
       type: SourceType.AGGREGATOR,
-      url: 'https://jobscollider.com',
+      url: 'https://jobscollider.com/remote-jobs.rss',
       global: true,
-      apiAvailable: true,
-      browserSearchAvailable: true,
+      rssAvailable: true,
       adapterStatus: AdapterStatus.ACTIVE,
       reliabilityScore: 0.8,
       contractRelevance: 0.7,
       remoteRelevance: 0.9,
       internationalRelevance: 0.85,
-      rateLimit: 200,
-      notes: 'Aggregates from multiple remote job sources',
+      termsUrl: 'https://jobscollider.com/remote-jobs.rss',
+      rateLimit: 30,
+      notes: 'Official RSS feed. Enabled per docs/22 preferred-source order.',
     },
     {
       sourceId: 'awesome-remote-jobs',
@@ -155,13 +127,12 @@ async function seed() {
       type: SourceType.SOURCE_CATALOGUE,
       url: 'https://github.com/lukasz-madon/awesome-remote-job',
       global: true,
-      browserSearchAvailable: true,
       adapterStatus: AdapterStatus.PENDING,
       reliabilityScore: 0.7,
       contractRelevance: 0.6,
       remoteRelevance: 1.0,
       internationalRelevance: 0.95,
-      notes: 'Discovery catalogue - not a direct job source',
+      notes: 'Discovery catalogue, not a direct job source — see docs/05.',
     },
     {
       sourceId: 'linkedin',
@@ -169,13 +140,12 @@ async function seed() {
       type: SourceType.JOB_BOARD,
       url: 'https://linkedin.com/jobs',
       global: true,
-      browserSearchAvailable: true,
       adapterStatus: AdapterStatus.PENDING,
       reliabilityScore: 0.75,
       contractRelevance: 0.65,
       remoteRelevance: 0.7,
       internationalRelevance: 0.9,
-      notes: 'Requires browser automation or partner API',
+      notes: 'No official API access confirmed. Disabled per docs/22 until reviewed.',
     },
     {
       sourceId: 'freelancermap',
@@ -183,15 +153,13 @@ async function seed() {
       type: SourceType.JOB_BOARD,
       url: 'https://freelancermap.com',
       global: true,
-      apiAvailable: false,
       rssAvailable: true,
-      browserSearchAvailable: true,
       adapterStatus: AdapterStatus.PENDING,
       reliabilityScore: 0.7,
       contractRelevance: 0.9,
       remoteRelevance: 0.8,
       internationalRelevance: 0.85,
-      notes: 'Strong for European freelance contracts',
+      notes: 'RSS available but terms/licensing not yet independently verified.',
     },
     {
       sourceId: 'jobserve',
@@ -199,13 +167,12 @@ async function seed() {
       type: SourceType.JOB_BOARD,
       url: 'https://jobserve.com',
       global: true,
-      browserSearchAvailable: true,
       adapterStatus: AdapterStatus.PENDING,
       reliabilityScore: 0.75,
       contractRelevance: 0.85,
       remoteRelevance: 0.6,
       internationalRelevance: 0.8,
-      notes: 'UK/EU focused, strong for contract roles',
+      notes: 'No official API/RSS access confirmed. Disabled per docs/22 until reviewed.',
     },
   ];
 
@@ -217,14 +184,26 @@ async function seed() {
     });
   }
 
-  // Seed some sample companies
-  const companies = [
+  // Sample companies retained as illustrative seed data — these are public
+  // facts (company names, public consultancy specialisms), not claims about
+  // the user, so they don't carry the same fabrication risk as the removed
+  // biography.
+  const companies: Array<{
+    name: string;
+    website: string;
+    country: string;
+    regions: string[];
+    type: CompanyType;
+    specialisms: string[];
+    score: number;
+    provenance: Prisma.InputJsonValue;
+  }> = [
     {
       name: 'Microsoft',
       website: 'https://microsoft.com',
       country: 'US',
       regions: ['AMER', 'EMEA', 'APAC'],
-      type: 'DIRECT_CLIENT',
+      type: CompanyType.DIRECT_CLIENT,
       specialisms: ['Azure', 'Cloud', 'AI', 'Enterprise'],
       score: 0.95,
       provenance: { source: 'manual', confidence: 1.0 },
@@ -234,7 +213,7 @@ async function seed() {
       website: 'https://avanade.com',
       country: 'US',
       regions: ['AMER', 'EMEA', 'APAC'],
-      type: 'SYSTEMS_INTEGRATOR',
+      type: CompanyType.SYSTEMS_INTEGRATOR,
       specialisms: ['Azure', 'Microsoft', 'Cloud', 'Digital Transformation'],
       score: 0.9,
       provenance: { source: 'manual', confidence: 1.0 },
@@ -244,7 +223,7 @@ async function seed() {
       website: 'https://kainos.com',
       country: 'GB',
       regions: ['EMEA'],
-      type: 'CLOUD_CONSULTANCY',
+      type: CompanyType.CLOUD_CONSULTANCY,
       specialisms: ['Azure', 'Cloud', 'Digital Services', 'Healthcare'],
       score: 0.85,
       provenance: { source: 'manual', confidence: 1.0 },
@@ -254,7 +233,7 @@ async function seed() {
       website: 'https://cloudreach.com',
       country: 'GB',
       regions: ['EMEA', 'AMER'],
-      type: 'CLOUD_CONSULTANCY',
+      type: CompanyType.CLOUD_CONSULTANCY,
       specialisms: ['AWS', 'Azure', 'GCP', 'Migration', 'Managed Services'],
       score: 0.88,
       provenance: { source: 'manual', confidence: 1.0 },

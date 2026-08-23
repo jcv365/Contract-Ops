@@ -1,12 +1,27 @@
+import { spawn } from 'node:child_process';
 import { prisma } from './client';
 import { logger } from '../config/logger';
 
-async function migrate() {
-  logger.info('Running database migrations...');
-  
-  // In a real app, you'd use `prisma migrate deploy` via CLI
-  // This is a placeholder for programmatic migration if needed
-  logger.info('Migrations complete (use `pnpm prisma migrate deploy` for production)');
+// Shells out to `prisma migrate deploy` rather than reimplementing it —
+// this is the entrypoint the Docker container runs on boot (see
+// deploy/docker-compose.yml), so it must actually apply
+// prisma/migrations/*, not just log a message.
+async function migrate(): Promise<void> {
+  logger.info('Running database migrations (prisma migrate deploy)...');
+
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn('npx', ['prisma', 'migrate', 'deploy'], {
+      stdio: 'inherit',
+      shell: process.platform === 'win32',
+    });
+    child.on('error', reject);
+    child.on('exit', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`prisma migrate deploy exited with code ${code}`));
+    });
+  });
+
+  logger.info('Migrations complete');
 }
 
 if (require.main === module) {

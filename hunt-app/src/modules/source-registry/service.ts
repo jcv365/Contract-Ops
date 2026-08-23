@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../db/client';
 import { logger } from '../../config/logger';
 import {
@@ -8,6 +9,10 @@ import {
   SourceHealthCheck,
   uuid,
 } from '../../domain/types';
+
+function isRecordNotFoundError(err: unknown): boolean {
+  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025';
+}
 
 export interface CreateSourceInput {
   sourceId: string;
@@ -31,6 +36,11 @@ export interface CreateSourceInput {
   attributionRequired?: boolean;
   rateLimit?: number;
   notes?: string;
+  // docs-pack/docs/22: a source only becomes ACTIVE after its compliance
+  // record (terms, licence, permitted extraction method) is reviewed —
+  // never on creation. Overriding away from PENDING here must be an
+  // explicit, deliberate call site, not a default.
+  adapterStatus?: AdapterStatus;
 }
 
 export interface UpdateSourceInput {
@@ -83,7 +93,7 @@ export class SourceRegistryService {
         rssAvailable: input.rssAvailable ?? false,
         browserSearchAvailable: input.browserSearchAvailable ?? false,
         mcpAvailable: input.mcpAvailable ?? false,
-        adapterStatus: AdapterStatus.PENDING,
+        adapterStatus: input.adapterStatus ?? AdapterStatus.PENDING,
         reliabilityScore: input.reliabilityScore ?? 0.5,
         contractRelevance: input.contractRelevance ?? 0.5,
         remoteRelevance: input.remoteRelevance ?? 0.5,
@@ -145,19 +155,28 @@ export class SourceRegistryService {
   }
 
   async update(id: string, input: UpdateSourceInput): Promise<Source | null> {
-    const source = await prisma.source.update({
-      where: { id },
-      data: input,
-    });
-
-    logger.info({ sourceId: source.sourceId }, 'Source updated');
-    return this.mapToDomain(source);
+    try {
+      const source = await prisma.source.update({
+        where: { id },
+        data: input,
+      });
+      logger.info({ sourceId: source.sourceId }, 'Source updated');
+      return this.mapToDomain(source);
+    } catch (err) {
+      if (isRecordNotFoundError(err)) return null;
+      throw err;
+    }
   }
 
   async delete(id: string): Promise<boolean> {
-    await prisma.source.delete({ where: { id } });
-    logger.info({ sourceId: id }, 'Source deleted');
-    return true;
+    try {
+      await prisma.source.delete({ where: { id } });
+      logger.info({ sourceId: id }, 'Source deleted');
+      return true;
+    } catch (err) {
+      if (isRecordNotFoundError(err)) return false;
+      throw err;
+    }
   }
 
   async recordHealthCheck(
