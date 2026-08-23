@@ -46,8 +46,7 @@ try {
     # as a sibling of hunt-app in the build context on the remote host too
     # (the compose file's build context is `..` relative to hunt-app/).
     Write-Host "Copying hunt-app and docs-pack to the remote host (this can take a few minutes)..." -ForegroundColor Cyan
-    Copy-Item -Path "$repoRoot\*" -Destination $RemoteDir -Recurse -Force -ToSession $session `
-        -Exclude @("node_modules", "dist", ".env")
+    Copy-Item -Path "$repoRoot\*" -Destination $RemoteDir -Recurse -Force -ToSession $session -Exclude @("node_modules", "dist", ".env")
     Copy-Item -Path "$contractOpsRoot\docs-pack" -Destination (Split-Path -Parent $RemoteDir) -Recurse -Force -ToSession $session
 
     $hasEnv = Invoke-Command -Session $session -ScriptBlock {
