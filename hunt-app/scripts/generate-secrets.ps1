@@ -36,6 +36,7 @@ $content = Get-Content ".env.example" -Raw
 $content = $content -replace 'POSTGRES_PASSWORD=', "POSTGRES_PASSWORD=$(New-RandomSecret 24)"
 $content = $content -replace 'ENCRYPTION_KEY=', "ENCRYPTION_KEY=$(New-RandomSecret 32)"
 $content = $content -replace 'JWT_SECRET=', "JWT_SECRET=$(New-RandomSecret 40)"
+$content = $content -replace '(?m)^API_KEY=$', "API_KEY=$(New-RandomSecret 32)"
 
 Set-Content -Path $EnvPath -Value $content -Encoding utf8 -NoNewline
 Write-Host "Wrote $EnvPath. Now fill in FREELLMAPI_API_KEY (and AZURE_* once an Entra app exists) by hand." -ForegroundColor Green

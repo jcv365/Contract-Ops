@@ -22,6 +22,7 @@ const DEFAULT_HUNT_SETTINGS: HuntSettings = {
   excludedKeywords: [],
   requiredSkills: [],
   preferredSkills: [],
+  allowedClearanceLevels: ['NONE'],
 };
 
 async function loadHuntSettings(): Promise<HuntSettings> {

@@ -18,6 +18,9 @@ export function runStartupPreflight(): void {
   if (env.ENABLE_GRAPH_SEND && (!env.AZURE_TENANT_ID || !env.AZURE_CLIENT_ID || !env.AZURE_CLIENT_SECRET)) {
     errors.push('ENABLE_GRAPH_SEND=true but AZURE_TENANT_ID/AZURE_CLIENT_ID/AZURE_CLIENT_SECRET are not fully set');
   }
+  if (env.NODE_ENV === 'production' && !env.API_KEY) {
+    errors.push('NODE_ENV=production but API_KEY is not set — the entire API surface (other than /health) is unauthenticated (rule 14/28: least privilege)');
+  }
   if (env.ENABLE_REPLY_INGESTION && !env.ENABLE_GRAPH_SEND) {
     // Not a hard requirement in every deployment topology, but reply
     // ingestion with no way to have ever sent anything is very likely a

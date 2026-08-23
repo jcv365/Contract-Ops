@@ -32,6 +32,7 @@ async function seed() {
           remoteOnly: true,
           seniority: ['SENIOR', 'PRINCIPAL', 'ARCHITECT', 'LEAD'],
           excludedKeywords: ['PERMANENT', 'ONSITE', 'HYBRID', 'JUNIOR', 'MID'],
+          allowedClearanceLevels: ['NONE'],
           requiredSkills: ['AZURE', 'CLOUD', 'ARCHITECTURE', 'INFRASTRUCTURE'],
           preferredSkills: ['FINOPS', 'AI', 'PLATFORM', 'NETWORKING', 'DEVOPS'],
         },

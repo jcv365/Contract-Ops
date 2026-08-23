@@ -1,8 +1,9 @@
 import crypto from 'node:crypto';
-import { Prisma, Source as PrismaSource } from '@prisma/client';
+import { Prisma, Source as PrismaSource, ConflictStatus } from '@prisma/client';
 import { prisma } from '../../db/client';
 import { logger } from '../../config/logger';
 import { RawOpportunity } from '../source-adapters/base';
+import { detectConflict, CONFLICT_TRACKED_FIELDS, ConflictCandidate } from './conflict';
 
 function normaliseText(value?: string): string {
   return (value ?? '').toLowerCase().trim().replace(/\s+/g, ' ');
@@ -24,6 +25,60 @@ export interface NormaliseResult {
   created: boolean;
 }
 
+// docs-pack/docs/27: when two sources describing the same clustered
+// opportunity disagree on a tracked field, preserve both values (never
+// silently prefer one) and mark it CONFLICTED. Idempotent across repeated
+// hunt runs — an already-recorded value pair is not duplicated, only a
+// genuinely new disagreement appends to the existing OPEN conflict.
+async function recordFieldConflicts(
+  clusterId: string,
+  incomingSourceId: string,
+  incoming: Record<string, unknown>,
+  other: { sourceId: string; url: string } & Record<string, unknown>
+): Promise<void> {
+  for (const field of CONFLICT_TRACKED_FIELDS) {
+    const incomingCandidate: ConflictCandidate = {
+      value: incoming[field],
+      source: incomingSourceId,
+      retrievedAt: new Date().toISOString(),
+    };
+    const otherCandidate: ConflictCandidate = {
+      value: other[field],
+      source: other.sourceId,
+      sourceUrl: other.url,
+      retrievedAt: new Date().toISOString(),
+    };
+
+    if (!detectConflict(otherCandidate, incomingCandidate)) continue;
+
+    const existingConflict = await prisma.claimConflict.findFirst({
+      where: { entityType: 'OpportunityCluster', entityId: clusterId, field, status: ConflictStatus.OPEN },
+    });
+
+    if (existingConflict) {
+      const values = existingConflict.values as unknown as ConflictCandidate[];
+      const alreadyRecorded = values.some((v) => JSON.stringify(v.value) === JSON.stringify(incomingCandidate.value));
+      if (!alreadyRecorded) {
+        await prisma.claimConflict.update({
+          where: { id: existingConflict.id },
+          data: { values: [...values, incomingCandidate] as unknown as Prisma.InputJsonValue },
+        });
+      }
+    } else {
+      await prisma.claimConflict.create({
+        data: {
+          entityType: 'OpportunityCluster',
+          entityId: clusterId,
+          field,
+          values: [otherCandidate, incomingCandidate] as unknown as Prisma.InputJsonValue,
+          status: ConflictStatus.OPEN,
+        },
+      });
+      logger.warn({ clusterId, field }, 'Claim conflict recorded between sources');
+    }
+  }
+}
+
 // Upserts a RawOpportunity into the canonical Opportunity table for a
 // given (already-persisted) Source row, and assigns it to a cross-source
 // OpportunityCluster by fingerprint. This is the layer the original
@@ -39,6 +94,25 @@ export async function normaliseOpportunity(
   let cluster = await prisma.opportunityCluster.findFirst({ where: { fingerprint } });
   if (!cluster) {
     cluster = await prisma.opportunityCluster.create({ data: { fingerprint } });
+  } else {
+    // Another source may have already contributed a member to this
+    // cluster — compare tracked fields against it before this record is
+    // written, so a genuine disagreement is preserved rather than the
+    // newer write silently overwriting the older one's version of events.
+    const otherMember = await prisma.opportunity.findFirst({
+      where: { clusterId: cluster.id, sourceId: { not: source.id } },
+    });
+    if (otherMember) {
+      const otherSourceSlug = (otherMember.provenance as { sourceId?: string } | null)?.sourceId ?? otherMember.sourceId;
+      await recordFieldConflicts(cluster.id, source.sourceId, raw as unknown as Record<string, unknown>, {
+        sourceId: otherSourceSlug,
+        url: otherMember.url,
+        originalRate: otherMember.originalRate,
+        originalCurrency: otherMember.originalCurrency,
+        remotePolicy: otherMember.remotePolicy,
+        contractType: otherMember.contractType,
+      });
+    }
   }
 
   const existing = await prisma.opportunity.findUnique({

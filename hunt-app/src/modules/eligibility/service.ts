@@ -1,4 +1,4 @@
-import { RemotePolicy, ContractType, OpportunityStatus, Actionability } from '@prisma/client';
+import { RemotePolicy, ContractType, ClearanceLevel, OpportunityStatus, Actionability } from '@prisma/client';
 import { prisma } from '../../db/client';
 import { logger } from '../../config/logger';
 
@@ -11,6 +11,11 @@ export interface HuntSettings {
   excludedKeywords: string[];
   requiredSkills: string[];
   preferredSkills: string[];
+  // docs-pack/docs/01: "reject mandatory security clearance unless
+  // explicitly marked an exception." Defaults to NONE only — a role
+  // requiring anything above that is excluded unless the user has
+  // explicitly widened this list.
+  allowedClearanceLevels: string[];
 }
 
 export interface EligibilityResult {
@@ -35,6 +40,7 @@ export interface EligibilityInput {
   contractType: ContractType | null;
   postedAt: Date | null;
   location: string | null;
+  clearance: ClearanceLevel | null;
 }
 
 export function evaluateEligibility(opportunity: EligibilityInput, settings: HuntSettings): EligibilityResult {
@@ -76,7 +82,20 @@ export function evaluateEligibility(opportunity: EligibilityInput, settings: Hun
     }
   }
 
-  gaps.push('Clearance requirement not evaluated (no adapter currently supplies this evidence)');
+  // Mandatory test #11 (docs-pack/docs/18): mandatory clearance excluded
+  // when clearance is prohibited. No current adapter (Jobicy, JobsCollider)
+  // reports clearance, so this branch is dormant against today's live data
+  // — but the filter itself is real and will engage the moment any source
+  // (including a future reply-extraction) populates the field.
+  if (opportunity.clearance && opportunity.clearance !== ClearanceLevel.UNKNOWN) {
+    if (!settings.allowedClearanceLevels.includes(opportunity.clearance)) {
+      eligible = false;
+      reasons.push(`Excluded: requires clearance ${opportunity.clearance}, not in allowed clearance levels`);
+    }
+  } else {
+    gaps.push('Clearance requirement not confirmed by source');
+  }
+
   gaps.push('Work authorisation not evaluated (no adapter currently supplies this evidence)');
 
   const notes = eligible

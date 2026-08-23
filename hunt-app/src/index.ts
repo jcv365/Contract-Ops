@@ -18,6 +18,8 @@ import { outreachRouter } from './api/routes/outreach';
 import { auditRouter } from './api/routes/audit';
 import { repliesRouter } from './api/routes/replies';
 import { commercialRouter } from './api/routes/commercial';
+import { requireApiKey } from './api/middleware/api-key';
+import { resolveTenant } from './api/middleware/tenant';
 
 const app = express();
 
@@ -47,6 +49,12 @@ app.use((req, res, next) => {
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Least privilege (docs-pack/docs/14/28): every route below this line
+// requires the API key. /health is deliberately exempt so container
+// orchestration healthchecks work without a credential.
+app.use(requireApiKey);
+app.use(resolveTenant);
 
 app.use('/sources', sourcesRouter);
 app.use('/hunt', huntRouter);

@@ -62,6 +62,14 @@ export const envSchema = z.object({
   // Security
   JWT_SECRET: z.string().min(32).optional(),
   ENCRYPTION_KEY: z.string().length(32).optional(),
+  // docs-pack/docs/14/28: least privilege. This is a single-user personal
+  // system with no login/session layer (rule 18: Phase 1 explicitly does
+  // not build multi-tenant/SaaS auth) — a shared-secret API key is the
+  // proportionate access control for that scope: without it, nothing on
+  // the API surface (other than /health) is reachable at all. Optional
+  // only so local dev without a key still works; startup preflight warns
+  // loudly when it's unset in a way that implies production use.
+  API_KEY: z.string().min(16).optional(),
 
   // Feature Flags — safety-critical: must fail closed, never coerce a
   // truthy-string bug into enabling autonomous sending (ADR-002).

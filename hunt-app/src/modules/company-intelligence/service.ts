@@ -12,6 +12,7 @@ export interface CreateCompanyInput {
   regions?: string[];
   type?: CompanyType;
   specialisms?: string[];
+  tenantId?: string;
 }
 
 export interface SetTargetingInput {
@@ -30,6 +31,7 @@ export class CompanyIntelligenceService {
         type: input.type,
         specialisms: input.specialisms ?? [],
         provenance: { source: 'manual' },
+        ...(input.tenantId ? { tenantId: input.tenantId } : {}),
       },
     });
     await this.recompute(company.id);
@@ -37,14 +39,20 @@ export class CompanyIntelligenceService {
     return company;
   }
 
-  async get(id: string) {
-    return prisma.company.findUnique({ where: { id }, include: { emails: true, recruiters: true } });
+  // R-24: findFirst-by-id-plus-tenant, not findUnique-by-id-alone — an id
+  // belonging to another tenant must 404, never leak via a bare lookup.
+  async get(id: string, tenantId?: string) {
+    return prisma.company.findFirst({
+      where: { id, ...(tenantId ? { tenantId } : {}) },
+      include: { emails: true, recruiters: true },
+    });
   }
 
-  async list(filters: { type?: CompanyType; country?: string; limit?: number; offset?: number } = {}) {
+  async list(filters: { type?: CompanyType; country?: string; tenantId?: string; limit?: number; offset?: number } = {}) {
     const where: Prisma.CompanyWhereInput = {
       ...(filters.type ? { type: filters.type } : {}),
       ...(filters.country ? { country: filters.country } : {}),
+      ...(filters.tenantId ? { tenantId: filters.tenantId } : {}),
     };
     const [companies, total] = await Promise.all([
       prisma.company.findMany({ where, take: filters.limit ?? 50, skip: filters.offset ?? 0, orderBy: { score: 'desc' } }),

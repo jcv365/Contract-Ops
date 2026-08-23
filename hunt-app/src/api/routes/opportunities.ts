@@ -6,6 +6,7 @@ import { evaluateOpportunityEligibility, HuntSettings } from '../../modules/elig
 import { scoreOpportunity } from '../../modules/scoring/service';
 import { applyFxToOpportunity } from '../../modules/fx/service';
 import { logger } from '../../config/logger';
+import { scopeToTenant } from '../middleware/tenant';
 
 export const opportunitiesRouter = Router();
 
@@ -20,10 +21,10 @@ const listQuerySchema = z.object({
 opportunitiesRouter.get('/', async (req, res, next) => {
   try {
     const query = listQuerySchema.parse(req.query);
-    const where = {
+    const where = scopeToTenant(req.tenantId, {
       ...(query.status ? { status: query.status } : {}),
       ...(query.actionability ? { actionability: query.actionability } : {}),
-    };
+    });
     const [opportunities, total] = await Promise.all([
       prisma.opportunity.findMany({
         where,
@@ -42,7 +43,9 @@ opportunitiesRouter.get('/', async (req, res, next) => {
 // docs-pack/docs/15: GET /opportunities/:id
 opportunitiesRouter.get('/:id', async (req, res, next) => {
   try {
-    const opportunity = await prisma.opportunity.findUnique({ where: { id: req.params.id } });
+    // findFirst, not findUnique-by-id-alone — an id from another tenant
+    // must 404 exactly like a nonexistent one, never leak whether it exists.
+    const opportunity = await prisma.opportunity.findFirst({ where: scopeToTenant(req.tenantId, { id: req.params.id }) });
     if (!opportunity) {
       res.status(404).json({ error: 'Opportunity not found' });
       return;

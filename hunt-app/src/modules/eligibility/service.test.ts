@@ -10,6 +10,7 @@ const settings: HuntSettings = {
   excludedKeywords: ['PERMANENT', 'ONSITE', 'HYBRID', 'JUNIOR'],
   requiredSkills: ['AZURE'],
   preferredSkills: ['FINOPS'],
+  allowedClearanceLevels: ['NONE'],
 };
 
 function baseOpportunity(overrides: Partial<Parameters<typeof evaluateEligibility>[0]> = {}) {
@@ -19,6 +20,7 @@ function baseOpportunity(overrides: Partial<Parameters<typeof evaluateEligibilit
     contractType: 'CONTRACT' as const,
     postedAt: new Date(),
     location: 'Remote',
+    clearance: null,
     ...overrides,
   };
 }
@@ -87,5 +89,37 @@ describe('evaluateEligibility', () => {
     expect(result.gaps).toContain('Posted date not confirmed by source');
     // never hard-excludes purely for missing (not contradicting) evidence
     expect(result.eligible).toBe(true);
+  });
+
+  // Mandatory test #11 (docs-pack/docs/18): mandatory clearance excluded
+  // when clearance is prohibited.
+  it('excludes a role requiring SECURITY_CLEARANCE when only NONE is allowed', () => {
+    const result = evaluateEligibility(baseOpportunity({ clearance: 'SECURITY_CLEARANCE' as const }), settings);
+    expect(result.eligible).toBe(false);
+    expect(result.reasons.join(' ')).toContain('SECURITY_CLEARANCE');
+  });
+
+  it('excludes a role requiring ENHANCED clearance when only NONE is allowed', () => {
+    const result = evaluateEligibility(baseOpportunity({ clearance: 'ENHANCED' as const }), settings);
+    expect(result.eligible).toBe(false);
+  });
+
+  it('accepts a role explicitly requiring NONE clearance', () => {
+    expect(evaluateEligibility(baseOpportunity({ clearance: 'NONE' as const }), settings).eligible).toBe(true);
+  });
+
+  it('accepts a clearance level the user has explicitly allowed', () => {
+    const permissive = { ...settings, allowedClearanceLevels: ['NONE', 'BASIC'] };
+    expect(evaluateEligibility(baseOpportunity({ clearance: 'BASIC' as const }), permissive).eligible).toBe(true);
+  });
+
+  it('treats an unconfirmed clearance (null or UNKNOWN) as a gap, never a fabricated pass or exclusion', () => {
+    const nullResult = evaluateEligibility(baseOpportunity({ clearance: null }), settings);
+    expect(nullResult.gaps).toContain('Clearance requirement not confirmed by source');
+    expect(nullResult.eligible).toBe(true);
+
+    const unknownResult = evaluateEligibility(baseOpportunity({ clearance: 'UNKNOWN' as const }), settings);
+    expect(unknownResult.gaps).toContain('Clearance requirement not confirmed by source');
+    expect(unknownResult.eligible).toBe(true);
   });
 });

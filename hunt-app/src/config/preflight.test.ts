@@ -59,4 +59,21 @@ describe('runStartupPreflight', () => {
     });
     expect(() => runStartupPreflight()).toThrow(PreflightError);
   });
+
+  // R-21 / docs-pack/docs/14/28: least privilege — production must not
+  // run with the whole API surface unauthenticated.
+  it('refuses to boot in production with no API_KEY set', async () => {
+    const { runStartupPreflight, PreflightError } = await loadPreflight({ NODE_ENV: 'production' });
+    expect(() => runStartupPreflight()).toThrow(PreflightError);
+  });
+
+  it('passes in production once API_KEY is set', async () => {
+    const { runStartupPreflight } = await loadPreflight({ NODE_ENV: 'production', API_KEY: 'a'.repeat(32) });
+    expect(() => runStartupPreflight()).not.toThrow();
+  });
+
+  it('does not require API_KEY outside production (local dev)', async () => {
+    const { runStartupPreflight } = await loadPreflight({ NODE_ENV: 'development' });
+    expect(() => runStartupPreflight()).not.toThrow();
+  });
 });

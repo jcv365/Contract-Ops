@@ -21,6 +21,7 @@ companiesRouter.get('/', async (req, res, next) => {
     const result = await companyIntelligenceService.list({
       type: type as CompanyType | undefined,
       country: country as string | undefined,
+      tenantId: req.tenantId,
       limit: limit ? Number(limit) : undefined,
       offset: offset ? Number(offset) : undefined,
     });
@@ -34,7 +35,7 @@ companiesRouter.get('/', async (req, res, next) => {
 companiesRouter.post('/', async (req, res, next) => {
   try {
     const input = createSchema.parse(req.body);
-    const company = await companyIntelligenceService.create(input);
+    const company = await companyIntelligenceService.create({ ...input, tenantId: req.tenantId });
     res.status(201).json(company);
   } catch (err) {
     next(err);
@@ -44,7 +45,7 @@ companiesRouter.post('/', async (req, res, next) => {
 // docs-pack/docs/15: GET /companies/:id
 companiesRouter.get('/:id', async (req, res, next) => {
   try {
-    const company = await companyIntelligenceService.get(req.params.id);
+    const company = await companyIntelligenceService.get(req.params.id, req.tenantId);
     if (!company) {
       res.status(404).json({ error: 'Company not found' });
       return;
@@ -64,7 +65,7 @@ companiesRouter.post('/:id/targeting', async (req, res, next) => {
   try {
     const input = targetingSchema.parse(req.body);
     await companyIntelligenceService.setTargeting(req.params.id, input);
-    const company = await companyIntelligenceService.get(req.params.id);
+    const company = await companyIntelligenceService.get(req.params.id, req.tenantId);
     res.json(company);
   } catch (err) {
     next(err);
