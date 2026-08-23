@@ -1,0 +1,101 @@
+# Conventions mirrored from AEOS's docker-compose.v2.yml
+# (g:\...\Code\AEOS\docker-compose.v2.yml) rather than legacy HUNT's
+# compose file, which hardcoded plaintext DB credentials
+# (hunt_user:hunt_password) and published Postgres's 5432 to the host.
+# Neither Postgres nor Redis is published here — only hunt-app's own port
+# reaches the host, and only that one port is needed for anything outside
+# this compose network to talk to the system.
+services:
+  hunt-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        GIT_SHA: ${GIT_SHA:-unknown}
+    image: hunt-app:${HUNT_IMAGE_TAG:-1.0.0}
+    container_name: hunt-app
+    restart: unless-stopped
+    ports:
+      # 3020, not 3010 — freellmapi already owns 3010 on this host.
+      - "${HOST_PORT:-3020}:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+      - DATABASE_URL=postgresql://hunt_app:${POSTGRES_PASSWORD}@postgres:5432/hunt_db
+      - REDIS_URL=redis://redis:6379
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - AI_PROVIDER=freellmapi
+      # freellmapi's own compose file binds 127.0.0.1 only and documents
+      # it must not be internet-exposed — host.docker.internal is the
+      # correct way to reach it from this container on the same host,
+      # exactly as AEOS's docker-compose.v2.yml does.
+      - FREELLMAPI_BASE_URL=http://host.docker.internal:3010
+      - FREELLMAPI_API_KEY=${FREELLMAPI_API_KEY:-}
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID:-}
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID:-}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET:-}
+      - GRAPH_REDIRECT_URI=${GRAPH_REDIRECT_URI:-}
+      # Safety-critical defaults — never flip these in this compose file
+      # without deliberately reviewing ADR-002/ADR-003 first.
+      - ENABLE_GRAPH_SEND=${ENABLE_GRAPH_SEND:-false}
+      - ENABLE_REPLY_INGESTION=${ENABLE_REPLY_INGESTION:-false}
+      - ENABLE_BIDOPS=true
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_PRETTY=false
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hunt-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: hunt-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=hunt_app
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=hunt_db
+    volumes:
+      - hunt_postgres_data:/var/lib/postgresql/data
+    networks:
+      - hunt-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hunt_app -d hunt_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: hunt-redis
+    restart: unless-stopped
+    volumes:
+      - hunt_redis_data:/data
+    networks:
+      - hunt-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  hunt_postgres_data:
+  hunt_redis_data:
+
+networks:
+  hunt-network:
+    driver: bridge

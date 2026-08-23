@@ -25,7 +25,7 @@ Status values: `NOT STARTED`, `IN PROGRESS`, `COMPLETE`, `NOT VERIFIED IN THIS E
 | R-17 | Idempotent send (no duplicate email on retry) | `modules/graph/idempotency.ts`, `send-service.ts` | `graph/idempotency.test.ts` (5 tests, passing) | Failed send retries without duplicate | COMPLETE (mandatory test #6) — proven: a SENT draft never resends; a SENDING draft refuses a concurrent send; FAILED/RETRY reuse the same idempotency key |
 | R-18 | Audit trail (11 fields) | `modules/approval/service.ts`, `modules/graph/send-service.ts`, `api/routes/audit.ts` | none yet (DB-dependent) | Every send/approval/edit recorded | IN PROGRESS — approve/reject/send all write AuditEvent with recipient/subject/attachments/graphMessageId/result/error in metadata; not yet exercised against a live database |
 | R-19 | Reply ingestion, classification, extraction | `modules/reply-intelligence` | `mapping.test.ts` (6 tests), `promotion.test.ts` (12 tests), all passing | Missing values stay null; new opportunity gets email provenance | IN PROGRESS — mandatory test #14 (no invented rate) and #15 (promotable classifications only) proven at the unit level; classification/extraction gated behind `ENABLE_REPLY_INGESTION` and the live AI call path is `NOT VERIFIED IN THIS ENVIRONMENT`; ingestion is a manual API stand-in, not a live Graph mailbox poller (same Entra blocker as Sprint 4) |
-| R-20 | Secret protection (no secrets in logs/repo) | `config/logger`, `.gitignore` | tokens-never-in-logs | grep of logs finds no token material | IN PROGRESS (redaction added Sprint 0) |
+| R-20 | Secret protection (no secrets in logs/repo) | `config/logger.ts` (`REDACT_PATHS`) | `logger.test.ts` (4 tests, passing) | grep of logs finds no token material | COMPLETE — proven against a real pino instance and captured output, not just the config object (mandatory test #16) |
 | R-21 | Least privilege throughout | `modules/graph`, RBAC boundary | — | Sprint 4/7 | NOT STARTED |
 | R-22 | Prompt-injection handling | `modules/ai/untrusted-content.ts` | `ai/untrusted-content.test.ts` (2 tests, passing) | Embedded instructions in adverts/emails never executed | IN PROGRESS — wrapper mechanism proven (delimits + labels untrusted content, instruction repeated at both ends); actual model resistance to an injection attempt is `NOT VERIFIED IN THIS ENVIRONMENT` (needs a live AI call) |
 | R-23 | PII controls (minimise data sent to AI, redact where practical) | `modules/bidops/service.ts` (only cites claim text + source, not full profile) | none yet | Sprint 3 | IN PROGRESS — no explicit redaction step implemented yet |
@@ -34,3 +34,28 @@ Status values: `NOT STARTED`, `IN PROGRESS`, `COMPLETE`, `NOT VERIFIED IN THIS E
 | R-26 | Rate benchmarking, never presented as fact with insufficient sample | `modules/commercial-intelligence/benchmarking.ts` | `benchmarking.test.ts` (8 tests, passing) | Benchmark carries a `sufficientData` flag; numbers are computed but flagged, never hidden or asserted as reliable below the sample threshold | COMPLETE (Sprint 6) — pure logic proven; DB-backed `benchmarkZarRates` unverified without a live database |
 | R-27 | Recruiter relationship scoring | `modules/commercial-intelligence/relationship-score.ts` | `relationship-score.test.ts` (4 tests, passing) | DO_NOT_CONTACT scores 0 regardless of history; PARTNER > CONTACTED | COMPLETE (Sprint 6) |
 | R-28 | Partner/subcontracting targeting, procurement discovery (no autonomous bid submission) | `modules/commercial-intelligence/service.ts` (`listPartnerCandidates`), `modules/procurement/service.ts` | none yet | Discovery and recording only — nothing submits to a procurement portal | IN PROGRESS (Sprint 6) — CRUD implemented, schema migration generated (`20260823190000_procurement`), unverified without a live database |
+
+## docs-pack/docs/18 — the 16 mandatory tests, individually
+
+The acceptance gate for this build, checked off against what actually has a passing test today.
+
+| # | Mandatory test | Status | Evidence |
+|---|---|---|---|
+| 1 | Unverified email cannot be sent | PROVEN (unit) | `recruiter-intelligence/readiness.test.ts` |
+| 2 | Inferred email never accepted as verified | PROVEN (unit) | `recruiter-intelligence/readiness.test.ts` |
+| 3 | Generic verified email → company/team greeting | PROVEN (unit) | `recruiter-intelligence/readiness.test.ts` |
+| 4 | Named verified email permits personal greeting | PROVEN (unit) | `recruiter-intelligence/readiness.test.ts` |
+| 5 | Duplicate outreach blocked | PROVEN (unit) | `bidops/evidence-check.test.ts` (`evaluateDuplicateContact`) |
+| 6 | Failed send retries idempotently without duplicate email | PROVEN (unit) | `graph/idempotency.test.ts` |
+| 7 | Hard-filter failure cannot be actionable | PROVEN (unit) | `scoring/service.test.ts`, `eligibility/service.test.ts` |
+| 8 | Foreign rate retains original currency and gets timestamped ZAR conversion | STRUCTURAL, NOT UNIT-TESTED | `modules/fx/service.ts` fails closed and never overwrites the original; the live conversion path needs network access not exercised in the unit suite |
+| 9 | Closed opportunity excluded | PROVEN (unit, via freshness proxy) | `eligibility/service.test.ts` — no adapter currently reports an explicit "closed" flag, so the 30-day freshness window is the implemented proxy |
+| 10 | Hybrid/onsite role excluded when remote-only configured | PROVEN (unit) | `eligibility/service.test.ts` |
+| 11 | Mandatory clearance excluded when clearance prohibited | NOT IMPLEMENTED | No adapter currently supplies clearance evidence (documented gap in `eligibility/service.ts`) |
+| 12 | Source failure reduces coverage and is visible | PROVEN (unit) | `coverage/service.test.ts` |
+| 13 | AI claim without evidence fails validation | PROVEN (unit) | `bidops/evidence-check.test.ts` (`findHallucinatedEvidenceIds`) |
+| 14 | Reply with no rate does not invent one | PROVEN (unit) | `reply-intelligence/mapping.test.ts` |
+| 15 | Reply containing a new opportunity can create a proposed opportunity with email provenance | PARTIAL | Promotion gating proven (`reply-intelligence/promotion.test.ts`); actual DB creation with provenance is implemented in `service.ts` but not exercised against a live database |
+| 16 | Tokens never appear in logs | PROVEN (unit) | `config/logger.test.ts`, against the real exported redact config |
+
+**13 of 16 fully proven at the unit level, 2 partial/structural, 1 not implemented** (clearance — no data source exists for it yet). None of these are exercised against a live database or a live AI/Graph call in this environment — see the DB-integration gap noted throughout this document and in each sprint's commit message.

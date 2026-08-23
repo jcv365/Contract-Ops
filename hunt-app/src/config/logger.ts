@@ -15,7 +15,7 @@ const transport = env.LOG_PRETTY
 // Rule 16: never log access tokens or secrets. Applies to any bound field
 // or nested field ending in one of these names, wherever it appears in the
 // log object graph (recruiter email bodies, Graph payloads, AI requests).
-const REDACT_PATHS = [
+export const REDACT_PATHS = [
   '*.accessToken',
   '*.refreshToken',
   '*.access_token',

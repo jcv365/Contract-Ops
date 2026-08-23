@@ -7,7 +7,7 @@ import { parseStructuredResponse, AiValidationError } from '../ai/structured-out
 import { loadPrompt, ensurePromptTemplateRecorded } from '../ai/prompt-loader';
 import { researchFindingsSchema, draftOutputSchema, reviewOutputSchema, ResearchFindings } from './schemas';
 import { checkWordCount } from './word-count';
-import { findHallucinatedEvidenceIds } from './evidence-check';
+import { findHallucinatedEvidenceIds, evaluateDuplicateContact } from './evidence-check';
 import { TargetType, GreetingMode } from '../../domain/types';
 
 export class BidopsError extends Error {}
@@ -165,10 +165,11 @@ export async function reviewDraft(draftId: string, transport: AiTransport = getA
       id: { not: draft.id },
     },
   });
+  const duplicateCheck = evaluateDuplicateContact(draft.recipientEmail, duplicateRecent?.id ?? null);
   checks.push({
     checkName: 'deterministic-duplicate-contact',
-    result: duplicateRecent ? ValidationCheckResult.FAIL : ValidationCheckResult.PASS,
-    issues: duplicateRecent ? [`Recipient ${draft.recipientEmail} already has a SENT draft (${duplicateRecent.id})`] : [],
+    result: ValidationCheckResult[duplicateCheck.result],
+    issues: duplicateCheck.issues,
   });
 
   for (const [checkName, promptName] of [

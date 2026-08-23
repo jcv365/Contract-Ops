@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findHallucinatedEvidenceIds } from './evidence-check';
+import { findHallucinatedEvidenceIds, evaluateDuplicateContact } from './evidence-check';
 
 describe('findHallucinatedEvidenceIds', () => {
   it('is empty when every cited id was supplied', () => {
@@ -16,5 +16,18 @@ describe('findHallucinatedEvidenceIds', () => {
 
   it('is empty when the model cited nothing', () => {
     expect(findHallucinatedEvidenceIds([], new Set(['a']))).toEqual([]);
+  });
+});
+
+describe('evaluateDuplicateContact', () => {
+  // Mandatory test #5 (docs-pack/docs/18): duplicate outreach blocked.
+  it('fails when the recipient already has a SENT draft', () => {
+    const result = evaluateDuplicateContact('recruiter@example.com', 'draft-existing-id');
+    expect(result.result).toBe('FAIL');
+    expect(result.issues[0]).toContain('draft-existing-id');
+  });
+
+  it('passes when no SENT draft exists for the recipient', () => {
+    expect(evaluateDuplicateContact('recruiter@example.com', null).result).toBe('PASS');
   });
 });

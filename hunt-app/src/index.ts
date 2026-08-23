@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { ZodError } from 'zod';
 import { env } from './config/env';
 import { logger } from './config/logger';
+import { runStartupPreflight } from './config/preflight';
 import { connectDatabase, disconnectDatabase } from './db/client';
 import { registerAdapters } from './modules/source-adapters';
 import { sourcesRouter } from './api/routes/sources';
@@ -71,6 +72,7 @@ app.use((err: unknown, req: express.Request, res: express.Response, _next: expre
 });
 
 async function start(): Promise<void> {
+  runStartupPreflight();
   await connectDatabase();
   registerAdapters();
 
