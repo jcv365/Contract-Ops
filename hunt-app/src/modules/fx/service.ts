@@ -2,7 +2,10 @@ import { prisma } from '../../db/client';
 import { logger } from '../../config/logger';
 import { env } from '../../config/env';
 
-const FX_PROVIDER_URL = 'https://api.exchangerate.host/latest';
+// exchangerate.host started requiring a paid access key (discovered live
+// during Sprint 7 deployment — the original choice never actually worked).
+// Frankfurter is ECB-sourced, genuinely free, and needs no key.
+const FX_PROVIDER_URL = 'https://api.frankfurter.app/latest';
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours — rates don't need to be per-second fresh
 
 export interface FxConversion {
@@ -35,7 +38,7 @@ export async function convertToZar(fromCurrency: string): Promise<FxConversion |
   const timeout = setTimeout(() => controller.abort(), env.REQUEST_TIMEOUT_MS);
 
   try {
-    const url = `${FX_PROVIDER_URL}?base=${encodeURIComponent(fromCurrency.toUpperCase())}&symbols=ZAR`;
+    const url = `${FX_PROVIDER_URL}?from=${encodeURIComponent(fromCurrency.toUpperCase())}&to=ZAR`;
     const response = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': env.USER_AGENT } });
     if (!response.ok) {
       logger.warn({ fromCurrency, status: response.status }, 'FX provider returned non-2xx; failing closed');
