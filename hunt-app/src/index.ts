@@ -15,6 +15,7 @@ import { companiesRouter } from './api/routes/companies';
 import { bidopsRouter } from './api/routes/bidops';
 import { outreachRouter } from './api/routes/outreach';
 import { auditRouter } from './api/routes/audit';
+import { repliesRouter } from './api/routes/replies';
 
 const app = express();
 
@@ -53,6 +54,7 @@ app.use('/companies', companiesRouter);
 app.use('/bidops', bidopsRouter);
 app.use('/outreach', outreachRouter);
 app.use('/audit', auditRouter);
+app.use('/replies', repliesRouter);
 
 // docs-pack/docs/15: "reject unknown unsafe input" — a ZodError becomes a
 // 400 with the validation detail; anything else is an unhandled 500,
