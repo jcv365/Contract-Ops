@@ -1,0 +1,45 @@
+<%- include('partials/header', { title: 'Companies' }) %>
+
+<h1>Companies (Market Outreach Hunt targets)</h1>
+<p class="muted">No automated discovery exists yet (docs/06 discovery search — recorded as not built in TRACEABILITY.md R-08). Enter targets found by hand here.</p>
+
+<table>
+  <thead><tr><th>Name</th><th>Type</th><th>Country</th><th>Score</th><th>Readiness</th><th></th></tr></thead>
+  <tbody>
+    <% companies.forEach(function(c) { %>
+      <tr>
+        <td><%= c.name %></td>
+        <td><%= c.type || '' %></td>
+        <td><%= c.country || '' %></td>
+        <td><%= c.score %></td>
+        <td><span class="badge badge-<%= c.outreachReadiness === 'OUTREACH_READY' ? 'active' : 'pending' %>"><%= c.outreachReadiness %></span></td>
+        <td><a href="/portal/companies/<%= c.id %>">Open</a></td>
+      </tr>
+    <% }) %>
+    <% if (companies.length === 0) { %>
+      <tr><td colspan="6" class="muted">No companies yet — add one below.</td></tr>
+    <% } %>
+  </tbody>
+</table>
+
+<h2>Add a company</h2>
+<form method="post" action="/portal/companies">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <div class="grid-2">
+    <label>Name <input type="text" name="name" required></label>
+    <label>Website <input type="text" name="website" placeholder="https://..."></label>
+    <label>Country <input type="text" name="country" placeholder="e.g. GB"></label>
+    <label>
+      Type
+      <select name="type">
+        <option value="">-- select --</option>
+        <% companyTypes.forEach(function(t) { %><option value="<%= t %>"><%= t %></option><% }) %>
+      </select>
+    </label>
+  </div>
+  <label>Regions (one per line) <textarea name="regions" rows="2"></textarea></label>
+  <label>Specialisms (one per line) <textarea name="specialisms" rows="2"></textarea></label>
+  <button type="submit">Add company</button>
+</form>
+
+<%- include('partials/footer') %>

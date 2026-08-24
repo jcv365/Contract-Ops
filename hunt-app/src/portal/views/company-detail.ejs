@@ -1,0 +1,57 @@
+<%- include('partials/header', { title: company.name }) %>
+
+<p><a href="/portal/companies">&larr; All companies</a></p>
+<h1><%= company.name %></h1>
+<p>
+  <span class="badge badge-<%= company.outreachReadiness === 'OUTREACH_READY' ? 'active' : 'pending' %>"><%= company.outreachReadiness %></span>
+  <span class="muted"><%= company.outreachReadinessReason %></span>
+</p>
+
+<h2>Targeting (required for OUTREACH_READY)</h2>
+<p class="muted">docs/27: evidence-backed targeting reason + selected proposition, plus a verified email below.</p>
+<form method="post" action="/portal/companies/<%= company.id %>/targeting">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <label>Targeting reason <textarea name="targetingReason" rows="2"><%= (company.provenance && company.provenance.targetingReason) || '' %></textarea></label>
+  <label>Proposition <textarea name="proposition" rows="2"><%= (company.provenance && company.provenance.proposition) || '' %></textarea></label>
+  <button type="submit">Save targeting</button>
+</form>
+
+<h2>Emails</h2>
+<table>
+  <thead><tr><th>Email</th><th>Type</th><th>Verified</th><th></th></tr></thead>
+  <tbody>
+    <% company.emails.forEach(function(e) { %>
+      <tr>
+        <td><%= e.email %></td>
+        <td><%= e.emailType %></td>
+        <td><%= e.verified ? 'Yes (' + e.verificationSource + ')' : 'No' %></td>
+        <td>
+          <% if (!e.verified) { %>
+            <form method="post" action="/portal/companies/<%= company.id %>/emails/<%= e.id %>/verify" class="inline-form">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <input type="text" name="verificationSource" placeholder="how verified (e.g. domain-mx-check)" required>
+              <button type="submit">Verify</button>
+            </form>
+          <% } %>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+
+<form method="post" action="/portal/companies/<%= company.id %>/emails">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <div class="grid-2">
+    <label>Email <input type="email" name="email" required></label>
+    <label>
+      Type
+      <select name="emailType">
+        <% emailTypes.forEach(function(t) { %><option value="<%= t %>"><%= t %></option><% }) %>
+      </select>
+    </label>
+  </div>
+  <p class="muted">Never guess an email address (ADR-003) — INFERRED emails are recorded for visibility but can never become send-eligible.</p>
+  <button type="submit">Add email</button>
+</form>
+
+<%- include('partials/footer') %>

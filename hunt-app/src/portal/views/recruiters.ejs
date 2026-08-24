@@ -1,0 +1,45 @@
+<%- include('partials/header', { title: 'Recruiters' }) %>
+
+<h1>Recruiters (Market Outreach Hunt targets)</h1>
+<p class="muted">No automated discovery exists yet (docs/06 — recorded as not built in TRACEABILITY.md R-08). Enter recruiters found by hand here.</p>
+
+<table>
+  <thead><tr><th>Name</th><th>Title</th><th>Company</th><th>Region</th><th>Readiness</th><th></th></tr></thead>
+  <tbody>
+    <% recruiters.forEach(function(r) { %>
+      <tr>
+        <td><%= r.name %></td>
+        <td><%= r.title || '' %></td>
+        <td><%= r.companyId ? (companies.find(function(c){return c.id === r.companyId}) || {}).name || '' : '' %></td>
+        <td><%= r.region || '' %></td>
+        <td><span class="badge badge-<%= r.outreachReadiness === 'EMAIL_READY' ? 'active' : 'pending' %>"><%= r.outreachReadiness %></span></td>
+        <td><a href="/portal/recruiters/<%= r.id %>">Open</a></td>
+      </tr>
+    <% }) %>
+    <% if (recruiters.length === 0) { %>
+      <tr><td colspan="6" class="muted">No recruiters yet — add one below.</td></tr>
+    <% } %>
+  </tbody>
+</table>
+
+<h2>Add a recruiter</h2>
+<form method="post" action="/portal/recruiters">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <div class="grid-2">
+    <label>Name <input type="text" name="name" required></label>
+    <label>Title <input type="text" name="title"></label>
+    <label>
+      Company
+      <select name="companyId">
+        <option value="">-- none / independent --</option>
+        <% companies.forEach(function(c) { %><option value="<%= c.id %>"><%= c.name %></option><% }) %>
+      </select>
+    </label>
+    <label>Region <input type="text" name="region"></label>
+  </div>
+  <label>Public profile URL <input type="text" name="publicProfileUrl" placeholder="https://linkedin.com/in/..."></label>
+  <label>Specialisms (one per line) <textarea name="specialisms" rows="2"></textarea></label>
+  <button type="submit">Add recruiter</button>
+</form>
+
+<%- include('partials/footer') %>

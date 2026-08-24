@@ -7,7 +7,10 @@ import { getOrCreateCsrfToken, requireCsrfToken } from './csrf';
 import { sourceRegistryService } from '../modules/source-registry/service';
 import { evidenceService } from '../modules/evidence/service';
 import { approveDraft, rejectDraft } from '../modules/approval/service';
-import { AdapterStatus, EvidenceState } from '../domain/types';
+import { recruiterIntelligenceService } from '../modules/recruiter-intelligence/service';
+import { companyIntelligenceService } from '../modules/company-intelligence/service';
+import { AdapterStatus, EvidenceState, EmailType, CompanyType } from '../domain/types';
+import { env } from '../config/env';
 
 export const portalRouter = Router();
 export const PORTAL_VIEWS_DIR = path.join(__dirname, 'views');
@@ -262,4 +265,168 @@ portalRouter.post('/approvals/:id/reject', requireCsrfToken, async (req, res, ne
   } catch (err) {
     next(err);
   }
+});
+
+// ============================================
+// Companies — the Market Outreach Hunt targets
+// (docs-pack/docs/06/13). No automated discovery
+// adapter exists (Sprint 2 scope decision, recorded
+// in TRACEABILITY.md R-08) — these are entered here
+// manually, same as via the raw API.
+// ============================================
+
+portalRouter.get('/companies', async (req, res, next) => {
+  try {
+    const { companies } = await companyIntelligenceService.list({ limit: 100 });
+    res.render('companies', { csrfToken: getOrCreateCsrfToken(req.session), companies, companyTypes: Object.values(CompanyType) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+portalRouter.get('/companies/:id', async (req, res, next) => {
+  try {
+    const company = await companyIntelligenceService.get(req.params.id);
+    if (!company) {
+      res.status(404).render('error', { csrfToken: getOrCreateCsrfToken(req.session), message: 'Company not found' });
+      return;
+    }
+    res.render('company-detail', { csrfToken: getOrCreateCsrfToken(req.session), company, emailTypes: Object.values(EmailType) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+portalRouter.post('/companies', requireCsrfToken, async (req, res, next) => {
+  try {
+    const company = await companyIntelligenceService.create({
+      name: String(req.body.name ?? ''),
+      website: req.body.website || undefined,
+      country: req.body.country || undefined,
+      regions: splitLines(req.body.regions),
+      type: Object.values(CompanyType).includes(req.body.type) ? req.body.type : undefined,
+      specialisms: splitLines(req.body.specialisms),
+    });
+    res.redirect(`/portal/companies/${company.id}`);
+  } catch (err) {
+    next(err);
+  }
+});
+
+portalRouter.post('/companies/:id/targeting', requireCsrfToken, async (req, res, next) => {
+  try {
+    await companyIntelligenceService.setTargeting(req.params.id, {
+      targetingReason: String(req.body.targetingReason ?? ''),
+      proposition: String(req.body.proposition ?? ''),
+    });
+    res.redirect(`/portal/companies/${req.params.id}`);
+  } catch (err) {
+    next(err);
+  }
+});
+
+portalRouter.post('/companies/:id/emails', requireCsrfToken, async (req, res, next) => {
+  try {
+    const emailType = Object.values(EmailType).includes(req.body.emailType) ? req.body.emailType : EmailType.INFERRED;
+    await companyIntelligenceService.addEmail(req.params.id, String(req.body.email ?? ''), emailType);
+    res.redirect(`/portal/companies/${req.params.id}`);
+  } catch (err) {
+    next(err);
+  }
+});
+
+portalRouter.post('/companies/:id/emails/:emailId/verify', requireCsrfToken, async (req, res, next) => {
+  try {
+    const source = String(req.body.verificationSource ?? '');
+    if (source.length < 3) throw new Error('verificationSource must name a real, independent check (ADR-003) — never guessed');
+    await companyIntelligenceService.verifyEmail(req.params.id, req.params.emailId, source);
+    res.redirect(`/portal/companies/${req.params.id}`);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ============================================
+// Recruiters
+// ============================================
+
+portalRouter.get('/recruiters', async (req, res, next) => {
+  try {
+    const { recruiters } = await recruiterIntelligenceService.list({ limit: 100 });
+    const companies = (await companyIntelligenceService.list({ limit: 200 })).companies;
+    res.render('recruiters', { csrfToken: getOrCreateCsrfToken(req.session), recruiters, companies });
+  } catch (err) {
+    next(err);
+  }
+});
+
+portalRouter.get('/recruiters/:id', async (req, res, next) => {
+  try {
+    const recruiter = await recruiterIntelligenceService.get(req.params.id);
+    if (!recruiter) {
+      res.status(404).render('error', { csrfToken: getOrCreateCsrfToken(req.session), message: 'Recruiter not found' });
+      return;
+    }
+    res.render('recruiter-detail', { csrfToken: getOrCreateCsrfToken(req.session), recruiter, emailTypes: Object.values(EmailType) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+portalRouter.post('/recruiters', requireCsrfToken, async (req, res, next) => {
+  try {
+    const recruiter = await recruiterIntelligenceService.create({
+      name: String(req.body.name ?? ''),
+      title: req.body.title || undefined,
+      companyId: req.body.companyId || undefined,
+      region: req.body.region || undefined,
+      specialisms: splitLines(req.body.specialisms),
+      publicProfileUrl: req.body.publicProfileUrl || undefined,
+    });
+    res.redirect(`/portal/recruiters/${recruiter.id}`);
+  } catch (err) {
+    next(err);
+  }
+});
+
+portalRouter.post('/recruiters/:id/emails', requireCsrfToken, async (req, res, next) => {
+  try {
+    const emailType = Object.values(EmailType).includes(req.body.emailType) ? req.body.emailType : EmailType.INFERRED;
+    await recruiterIntelligenceService.addEmail(req.params.id, { email: String(req.body.email ?? ''), emailType });
+    res.redirect(`/portal/recruiters/${req.params.id}`);
+  } catch (err) {
+    next(err);
+  }
+});
+
+portalRouter.post('/recruiters/:id/emails/:emailId/verify', requireCsrfToken, async (req, res, next) => {
+  try {
+    const source = String(req.body.verificationSource ?? '');
+    if (source.length < 3) throw new Error('verificationSource must name a real, independent check (ADR-003) — never guessed');
+    await recruiterIntelligenceService.verifyEmail(req.params.id, { emailId: req.params.emailId, verificationSource: source });
+    res.redirect(`/portal/recruiters/${req.params.id}`);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ============================================
+// Graph settings — read-only status. Azure/Entra
+// credentials are never portal-editable: they'd
+// have to be stored somewhere, and a plaintext
+// client secret in the database is a worse security
+// posture than "redeploy with an updated .env" for
+// a value that changes rarely (rule 16/28).
+// ============================================
+
+portalRouter.get('/graph-settings', (req, res) => {
+  res.render('graph-settings', {
+    csrfToken: getOrCreateCsrfToken(req.session),
+    enableGraphSend: env.ENABLE_GRAPH_SEND,
+    enableReplyIngestion: env.ENABLE_REPLY_INGESTION,
+    hasTenantId: Boolean(env.AZURE_TENANT_ID),
+    hasClientId: Boolean(env.AZURE_CLIENT_ID),
+    hasClientSecret: Boolean(env.AZURE_CLIENT_SECRET),
+    hasRedirectUri: Boolean(env.GRAPH_REDIRECT_URI),
+  });
 });

@@ -1,0 +1,33 @@
+<%- include('partials/header', { title: 'Graph Settings' }) %>
+
+<h1>Microsoft Graph settings</h1>
+<p class="muted">Read-only status. Azure/Entra credentials are never editable here — a client secret sitting in plaintext in the database is a worse security posture than "change the .env file and redeploy" for a value that changes rarely (rule 16/28).</p>
+
+<table>
+  <tbody>
+    <tr><td>Send enabled (<code>ENABLE_GRAPH_SEND</code>)</td>
+      <td><span class="badge badge-<%= enableGraphSend ? 'active' : 'pending' %>"><%= enableGraphSend ? 'TRUE — real sends' : 'FALSE — mock transport only' %></span></td></tr>
+    <tr><td>Reply ingestion enabled (<code>ENABLE_REPLY_INGESTION</code>)</td>
+      <td><span class="badge badge-<%= enableReplyIngestion ? 'active' : 'pending' %>"><%= enableReplyIngestion ? 'TRUE' : 'FALSE' %></span></td></tr>
+    <tr><td>AZURE_TENANT_ID configured</td><td><span class="badge badge-<%= hasTenantId ? 'active' : 'pending' %>"><%= hasTenantId ? 'Yes' : 'No' %></span></td></tr>
+    <tr><td>AZURE_CLIENT_ID configured</td><td><span class="badge badge-<%= hasClientId ? 'active' : 'pending' %>"><%= hasClientId ? 'Yes' : 'No' %></span></td></tr>
+    <tr><td>AZURE_CLIENT_SECRET configured</td><td><span class="badge badge-<%= hasClientSecret ? 'active' : 'pending' %>"><%= hasClientSecret ? 'Yes' : 'No' %></span></td></tr>
+    <tr><td>GRAPH_REDIRECT_URI configured</td><td><span class="badge badge-<%= hasRedirectUri ? 'active' : 'pending' %>"><%= hasRedirectUri ? 'Yes' : 'No' %></span></td></tr>
+  </tbody>
+</table>
+
+<% if (!enableGraphSend) { %>
+  <div class="alert alert-error">
+    Outreach send currently uses <strong>MockGraphTransport</strong> — NOT VERIFIED IN THIS ENVIRONMENT, no real mailbox is involved. No Entra app has been registered yet.
+  </div>
+<% } %>
+
+<h2>To enable real sending</h2>
+<ol>
+  <li>Register an app in Microsoft Entra ID (least-privilege scopes only: <code>openid profile email offline_access User.Read Mail.Send</code>; add <code>Mail.Read</code> only if enabling reply ingestion).</li>
+  <li>Set <code>AZURE_TENANT_ID</code>, <code>AZURE_CLIENT_ID</code>, <code>AZURE_CLIENT_SECRET</code>, <code>GRAPH_REDIRECT_URI</code> in the server's <code>.env</code>.</li>
+  <li>Set <code>ENABLE_GRAPH_SEND=true</code> (and <code>ENABLE_REPLY_INGESTION=true</code> if applicable) in the same file.</li>
+  <li>Redeploy — the startup preflight will refuse to boot if these are incomplete.</li>
+</ol>
+
+<%- include('partials/footer') %>

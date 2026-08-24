@@ -33,7 +33,32 @@ const app = express();
 app.set('view engine', 'ejs');
 app.set('views', PORTAL_VIEWS_DIR);
 
-app.use(helmet());
+// This deployment is plain HTTP on a private LAN (192.168.1.195), not
+// HTTPS (see portal/session.ts's cookie config for the same note).
+// Helmet's DEFAULTS assume an HTTPS-served app and actively break a
+// plain-HTTP one:
+//   - `upgrade-insecure-requests` in the CSP tells the browser to rewrite
+//     every request (including the portal's login form submission) to
+//     https://, which nothing on this host serves — the form silently
+//     "does nothing" because the browser is trying and failing to reach
+//     a TLS port that was never opened.
+//   - `Strict-Transport-Security` (HSTS) is worse: once a browser sees it
+//     even once, it remembers to force HTTPS for this host for a full
+//     year, regardless of what the user types afterward.
+// Found live 2026-08-24 (see TRACEABILITY.md) after the portal's login
+// form appeared to "do nothing" in a real browser — a scripted HTTP
+// client (curl, PowerShell's Invoke-WebRequest) doesn't enforce either
+// policy, so this class of bug is only ever caught by testing in an
+// actual browser.
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: { upgradeInsecureRequests: null },
+    },
+    hsts: false,
+  })
+);
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false })); // portal form POSTs

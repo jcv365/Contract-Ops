@@ -1,0 +1,49 @@
+<%- include('partials/header', { title: recruiter.name }) %>
+
+<p><a href="/portal/recruiters">&larr; All recruiters</a></p>
+<h1><%= recruiter.name %></h1>
+<p>
+  <span class="badge badge-<%= recruiter.outreachReadiness === 'EMAIL_READY' ? 'active' : 'pending' %>"><%= recruiter.outreachReadiness %></span>
+  <span class="muted"><%= recruiter.outreachReadinessReason %></span>
+</p>
+<p class="muted"><%= recruiter.title || '' %> <%= recruiter.company ? 'at ' + recruiter.company.name : '' %></p>
+
+<h2>Emails</h2>
+<p class="muted">A named greeting (FIRST_NAME) requires a verified PERSONAL email; INFERRED (guessed) emails can never become send-eligible, regardless of verification (ADR-003).</p>
+<table>
+  <thead><tr><th>Email</th><th>Type</th><th>Verified</th><th></th></tr></thead>
+  <tbody>
+    <% recruiter.emails.forEach(function(e) { %>
+      <tr>
+        <td><%= e.email %></td>
+        <td><%= e.emailType %></td>
+        <td><%= e.verified ? 'Yes (' + e.verificationSource + ')' : 'No' %></td>
+        <td>
+          <% if (!e.verified && e.emailType !== 'INFERRED') { %>
+            <form method="post" action="/portal/recruiters/<%= recruiter.id %>/emails/<%= e.id %>/verify" class="inline-form">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <input type="text" name="verificationSource" placeholder="how verified (e.g. linkedin-cross-check)" required>
+              <button type="submit">Verify</button>
+            </form>
+          <% } %>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+
+<form method="post" action="/portal/recruiters/<%= recruiter.id %>/emails">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <div class="grid-2">
+    <label>Email <input type="email" name="email" required></label>
+    <label>
+      Type
+      <select name="emailType">
+        <% emailTypes.forEach(function(t) { %><option value="<%= t %>"><%= t %></option><% }) %>
+      </select>
+    </label>
+  </div>
+  <button type="submit">Add email</button>
+</form>
+
+<%- include('partials/footer') %>
