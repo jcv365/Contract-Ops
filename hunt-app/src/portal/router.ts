@@ -4,7 +4,8 @@ import { prisma } from '../db/client';
 import { logger } from '../config/logger';
 import { requirePortalSession, loginRateLimiter, checkPortalPassword } from './auth';
 import { getOrCreateCsrfToken, requireCsrfToken } from './csrf';
-import { sourceRegistryService } from '../modules/source-registry/service';
+import { sourceRegistryService, SourceActivationError } from '../modules/source-registry/service';
+import { adapterRegistry } from '../modules/source-adapters/base';
 import { evidenceService } from '../modules/evidence/service';
 import { approveDraft, rejectDraft } from '../modules/approval/service';
 import { recruiterIntelligenceService } from '../modules/recruiter-intelligence/service';
@@ -132,7 +133,12 @@ portalRouter.post('/settings', requireCsrfToken, async (req, res, next) => {
 portalRouter.get('/sources', async (req, res, next) => {
   try {
     const { sources } = await sourceRegistryService.list({ limit: 100 });
-    res.render('sources', { csrfToken: getOrCreateCsrfToken(req.session), sources });
+    // Live bug found 2026-08-24 (AUDIT-REPORT.md): the Active checkbox
+    // used to accept any source, including ones with zero adapter
+    // implementation. The view now knows which sources actually have
+    // code behind them and disables the control for the rest.
+    const sourcesWithAdapterInfo = sources.map((s) => ({ ...s, hasAdapter: adapterRegistry.get(s.sourceId) != null }));
+    res.render('sources', { csrfToken: getOrCreateCsrfToken(req.session), sources: sourcesWithAdapterInfo, error: null });
   } catch (err) {
     next(err);
   }
@@ -147,6 +153,12 @@ portalRouter.post('/sources/:id', requireCsrfToken, async (req, res, next) => {
     });
     res.redirect('/portal/sources');
   } catch (err) {
+    if (err instanceof SourceActivationError) {
+      const { sources } = await sourceRegistryService.list({ limit: 100 });
+      const sourcesWithAdapterInfo = sources.map((s) => ({ ...s, hasAdapter: adapterRegistry.get(s.sourceId) != null }));
+      res.status(422).render('sources', { csrfToken: getOrCreateCsrfToken(req.session), sources: sourcesWithAdapterInfo, error: err.message });
+      return;
+    }
     next(err);
   }
 });

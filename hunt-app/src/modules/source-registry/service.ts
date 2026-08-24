@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../db/client';
 import { logger } from '../../config/logger';
+import { adapterRegistry } from '../source-adapters/base';
 import {
   Source,
   SourceType,
@@ -13,6 +14,17 @@ import {
 function isRecordNotFoundError(err: unknown): boolean {
   return err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025';
 }
+
+// Live bug found 2026-08-24 (see AUDIT-REPORT.md): the portal let an
+// operator mark jobserve/freelancermap/linkedin/awesome-remote-jobs
+// ACTIVE despite none of them having a registered adapter class
+// (src/modules/source-adapters/index.ts registers exactly two: Jobicy,
+// JobsCollider). A HUNT run against that state correctly reported
+// degraded coverage rather than a false 100% — but the UI should never
+// have allowed the misconfiguration to be created in the first place.
+// This is the single enforcement point both the portal and the JSON API
+// route go through, since both call SourceRegistryService.update().
+export class SourceActivationError extends Error {}
 
 export interface CreateSourceInput {
   sourceId: string;
@@ -156,6 +168,15 @@ export class SourceRegistryService {
 
   async update(id: string, input: UpdateSourceInput): Promise<Source | null> {
     try {
+      if (input.adapterStatus === AdapterStatus.ACTIVE) {
+        const existing = await prisma.source.findUnique({ where: { id } });
+        if (existing && !adapterRegistry.get(existing.sourceId)) {
+          throw new SourceActivationError(
+            `Cannot activate '${existing.sourceId}': no adapter is registered for it. Only sources with real search implementations may be ACTIVE — see src/modules/source-adapters/index.ts.`
+          );
+        }
+      }
+
       const source = await prisma.source.update({
         where: { id },
         data: input,

@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from './client';
 import { logger } from '../config/logger';
 import { SourceType, AdapterStatus, CompanyType } from '@prisma/client';
+import { WORLDWIDE_COUNTRIES, WORLDWIDE_REGIONS } from '../config/worldwide-matrix';
 
 // Sprint 0 decision (see AUDIT-REPORT.md conflict #1): the original seed
 // hard-coded a fabricated biography — named certifications, "200+
@@ -26,8 +27,8 @@ async function seed() {
         // 12 forbids reporting worldwide coverage unless this configured
         // matrix was actually searched.
         hunt: {
-          countries: ['ZA', 'GB', 'US', 'AU', 'CA', 'DE', 'NL', 'IE', 'AE', 'SG'],
-          regions: ['EMEA', 'APAC', 'AMER'],
+          countries: [...WORLDWIDE_COUNTRIES],
+          regions: [...WORLDWIDE_REGIONS],
           contractTypes: ['FREELANCE', 'CONTRACT', 'SOW', 'PROJECT', 'CONSULTING'],
           remoteOnly: true,
           seniority: ['SENIOR', 'PRINCIPAL', 'ARCHITECT', 'LEAD'],

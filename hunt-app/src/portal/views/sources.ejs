@@ -3,6 +3,8 @@
 <h1>Sources</h1>
 <p class="muted">Per docs/22, a source only becomes ACTIVE after its compliance record (terms, licence, permitted extraction method) has been reviewed.</p>
 
+<% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
+
 <table>
   <thead><tr><th>Source</th><th>Type</th><th>Status</th><th>Reliability</th><th>Notes</th><th></th></tr></thead>
   <tbody>
@@ -14,15 +16,19 @@
         <td><%= source.reliabilityScore %></td>
         <td class="muted"><%= source.notes || '' %></td>
         <td>
-          <form method="post" action="/portal/sources/<%= source.id %>" class="inline-form">
-            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <input type="hidden" name="notes" value="<%= source.notes || '' %>">
-            <label class="checkbox-label">
-              <input type="checkbox" name="enabled" <%= source.adapterStatus === 'ACTIVE' ? 'checked' : '' %>>
-              Active
-            </label>
-            <button type="submit">Save</button>
-          </form>
+          <% if (source.hasAdapter) { %>
+            <form method="post" action="/portal/sources/<%= source.id %>" class="inline-form">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <input type="hidden" name="notes" value="<%= source.notes || '' %>">
+              <label class="checkbox-label">
+                <input type="checkbox" name="enabled" <%= source.adapterStatus === 'ACTIVE' ? 'checked' : '' %>>
+                Active
+              </label>
+              <button type="submit">Save</button>
+            </form>
+          <% } else { %>
+            <span class="muted" title="No adapter implementation exists for this source — it cannot actually be searched, so it cannot be marked Active.">No adapter implemented</span>
+          <% } %>
         </td>
       </tr>
     <% }) %>

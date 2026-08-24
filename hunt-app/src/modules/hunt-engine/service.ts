@@ -8,14 +8,20 @@ import { evaluateOpportunityEligibility, HuntSettings } from '../eligibility/ser
 import { scoreOpportunity } from '../scoring/service';
 import { applyFxToOpportunity } from '../fx/service';
 import { computeCoveragePercent } from '../coverage/service';
+import { WORLDWIDE_COUNTRIES, WORLDWIDE_REGIONS } from '../../config/worldwide-matrix';
 
 interface StoredUserSettings {
   hunt?: Partial<HuntSettings>;
 }
 
+// Fallback only — the real settings live in User.settings.hunt (seeded
+// with the same worldwide matrix, editable via the portal). This exists
+// so a HUNT run against a user row with no settings configured at all
+// still declares a real matrix rather than an empty one that would
+// silently report 0% of nothing as "complete" coverage.
 const DEFAULT_HUNT_SETTINGS: HuntSettings = {
-  countries: [],
-  regions: [],
+  countries: [...WORLDWIDE_COUNTRIES],
+  regions: [...WORLDWIDE_REGIONS],
   contractTypes: ['FREELANCE', 'CONTRACT', 'SOW', 'PROJECT', 'CONSULTING'],
   remoteOnly: true,
   seniority: [],

@@ -1,6 +1,6 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import { sourceRegistryService } from '../../modules/source-registry/service';
+import { sourceRegistryService, SourceActivationError } from '../../modules/source-registry/service';
 import { adapterRegistry } from '../../modules/source-adapters';
 import { prisma } from '../../db/client';
 import { SourceType, AdapterStatus, HealthStatus } from '../../domain/types';
@@ -92,4 +92,12 @@ sourcesRouter.patch('/:id', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+sourcesRouter.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
+  if (err instanceof SourceActivationError) {
+    res.status(422).json({ error: err.message });
+    return;
+  }
+  next(err);
 });
