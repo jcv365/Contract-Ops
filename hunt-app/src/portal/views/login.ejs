@@ -1,0 +1,19 @@
+<%- include('partials/header', { title: 'Log in', hideNav: true }) %>
+
+<div class="login-box">
+  <h1>HUNT</h1>
+  <p class="muted">Contract Acquisition OS</p>
+  <% if (error) { %>
+    <div class="alert alert-error"><%= error %></div>
+  <% } %>
+  <form method="post" action="/portal/login">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <label>
+      Password
+      <input type="password" name="password" required autofocus>
+    </label>
+    <button type="submit">Log in</button>
+  </form>
+</div>
+
+<%- include('partials/footer') %>

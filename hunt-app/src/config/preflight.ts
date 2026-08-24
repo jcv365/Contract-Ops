@@ -21,6 +21,12 @@ export function runStartupPreflight(): void {
   if (env.NODE_ENV === 'production' && !env.API_KEY) {
     errors.push('NODE_ENV=production but API_KEY is not set — the entire API surface (other than /health) is unauthenticated (rule 14/28: least privilege)');
   }
+  if (env.NODE_ENV === 'production' && !env.PORTAL_PASSWORD) {
+    errors.push('NODE_ENV=production but PORTAL_PASSWORD is not set — the admin portal cannot be locked down');
+  }
+  if (env.NODE_ENV === 'production' && !env.SESSION_SECRET) {
+    errors.push('NODE_ENV=production but SESSION_SECRET is not set — portal session cookies cannot be signed');
+  }
   if (env.ENABLE_REPLY_INGESTION && !env.ENABLE_GRAPH_SEND) {
     // Not a hard requirement in every deployment topology, but reply
     // ingestion with no way to have ever sent anything is very likely a

@@ -30,6 +30,8 @@ services:
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - JWT_SECRET=${JWT_SECRET}
       - API_KEY=${API_KEY}
+      - PORTAL_PASSWORD=${PORTAL_PASSWORD}
+      - SESSION_SECRET=${SESSION_SECRET}
       - AI_PROVIDER=freellmapi
       # freellmapi's own compose file binds 127.0.0.1 only and documents
       # it must not be internet-exposed — host.docker.internal is the

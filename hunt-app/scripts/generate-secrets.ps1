@@ -37,6 +37,14 @@ $content = $content -replace 'POSTGRES_PASSWORD=', "POSTGRES_PASSWORD=$(New-Rand
 $content = $content -replace 'ENCRYPTION_KEY=', "ENCRYPTION_KEY=$(New-RandomSecret 32)"
 $content = $content -replace 'JWT_SECRET=', "JWT_SECRET=$(New-RandomSecret 40)"
 $content = $content -replace '(?m)^API_KEY=$', "API_KEY=$(New-RandomSecret 32)"
+$content = $content -replace '(?m)^SESSION_SECRET=$', "SESSION_SECRET=$(New-RandomSecret 32)"
+# PORTAL_PASSWORD is typed by a human at a login form, not carried in a
+# header — a full base64 blob is needless to type. 16 random alphanumeric
+# characters, rate-limited to 5 attempts/15min at the login route
+# (src/portal/auth.ts), is proportionate.
+$portalPassword = -join ((New-RandomSecret 24) -replace '[^a-zA-Z0-9]', '').Substring(0, 16)
+$content = $content -replace '(?m)^PORTAL_PASSWORD=$', "PORTAL_PASSWORD=$portalPassword"
 
 Set-Content -Path $EnvPath -Value $content -Encoding utf8 -NoNewline
 Write-Host "Wrote $EnvPath. Now fill in FREELLMAPI_API_KEY (and AZURE_* once an Entra app exists) by hand." -ForegroundColor Green
+Write-Host "Portal password: $portalPassword" -ForegroundColor Cyan

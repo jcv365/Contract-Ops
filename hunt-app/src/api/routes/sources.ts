@@ -53,3 +53,43 @@ sourcesRouter.post('/health-check', async (req, res, next) => {
     next(err);
   }
 });
+
+// GET /sources/:id — not in the original docs/15 list (which only had the
+// collection endpoint), added for the portal's per-source edit view.
+sourcesRouter.get('/:id', async (req, res, next) => {
+  try {
+    const source = await prisma.source.findUnique({ where: { id: req.params.id } });
+    if (!source) {
+      res.status(404).json({ error: 'Source not found' });
+      return;
+    }
+    res.json(source);
+  } catch (err) {
+    next(err);
+  }
+});
+
+const updateSchema = z.object({
+  adapterStatus: z.nativeEnum(AdapterStatus).optional(),
+  notes: z.string().optional(),
+  termsUrl: z.string().url().optional(),
+  licence: z.string().optional(),
+  rateLimit: z.coerce.number().int().positive().optional(),
+});
+
+// PATCH /sources/:id — enable/disable a source and edit its docs/22
+// compliance fields. sourceRegistryService.update() (Sprint 1) existed
+// but nothing routed to it until now.
+sourcesRouter.patch('/:id', async (req, res, next) => {
+  try {
+    const input = updateSchema.parse(req.body);
+    const updated = await sourceRegistryService.update(req.params.id, input);
+    if (!updated) {
+      res.status(404).json({ error: 'Source not found' });
+      return;
+    }
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+});

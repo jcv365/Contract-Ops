@@ -1,0 +1,42 @@
+<%- include('partials/header', { title: 'Approvals' }) %>
+
+<h1>Outreach approval queue</h1>
+<p class="muted">docs/16: no hidden send action. Approving here does not send — it only moves the draft to APPROVED; sending is a separate step via the API.</p>
+
+<% drafts.forEach(function(draft) { %>
+  <div class="approval-card">
+    <div class="approval-header">
+      <strong><%= draft.subject %></strong>
+      <span class="muted">to <%= draft.recipientEmail %> (<%= draft.greetingMode %>)</span>
+    </div>
+    <pre class="draft-body"><%= draft.body %></pre>
+    <div class="evidence-used">
+      <strong>Evidence cited:</strong>
+      <% if (draft.draftEvidence.length === 0) { %>
+        <span class="muted">none</span>
+      <% } else { %>
+        <ul>
+          <% draft.draftEvidence.forEach(function(de) { %>
+            <li><%= de.evidence.claim %> <span class="badge badge-evidence-<%= de.evidence.state.toLowerCase() %>"><%= de.evidence.state %></span></li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </div>
+    <div class="approval-actions">
+      <form method="post" action="/portal/approvals/<%= draft.id %>/approve" class="inline-form">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button type="submit" class="btn-approve">Approve</button>
+      </form>
+      <form method="post" action="/portal/approvals/<%= draft.id %>/reject" class="inline-form">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button type="submit" class="btn-reject">Reject</button>
+      </form>
+    </div>
+  </div>
+<% }) %>
+
+<% if (drafts.length === 0) { %>
+  <p class="muted">Nothing awaiting approval right now.</p>
+<% } %>
+
+<%- include('partials/footer') %>

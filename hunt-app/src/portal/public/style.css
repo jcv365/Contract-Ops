@@ -1,0 +1,112 @@
+:root {
+  --bg: #0f1216;
+  --panel: #1a1f26;
+  --border: #2b323c;
+  --text: #e6e9ef;
+  --muted: #8b95a3;
+  --accent: #4f8cff;
+  --success: #2fb872;
+  --error: #e5534b;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, Segoe UI, Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 24px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.brand { font-weight: 700; font-size: 18px; }
+.topbar nav { display: flex; gap: 16px; flex: 1; }
+.topbar nav a { color: var(--muted); text-decoration: none; }
+.topbar nav a:hover { color: var(--text); }
+.logout-form button { background: none; border: 1px solid var(--border); color: var(--muted); padding: 4px 10px; border-radius: 4px; cursor: pointer; }
+
+.content { max-width: 960px; margin: 0 auto; padding: 24px; }
+
+h1 { font-size: 20px; margin-top: 0; }
+h2 { font-size: 16px; margin-top: 32px; }
+.muted { color: var(--muted); font-size: 13px; }
+
+.login-box {
+  max-width: 320px;
+  margin: 15vh auto;
+  padding: 32px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-align: center;
+}
+.login-box form { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; text-align: left; }
+
+label { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; font-size: 13px; }
+.checkbox-label { flex-direction: row; align-items: center; gap: 8px; }
+input[type="text"], input[type="password"], input[type="number"], textarea, select {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 13px;
+}
+textarea { resize: vertical; }
+
+button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+button:hover { opacity: 0.9; }
+.btn-approve { background: var(--success); }
+.btn-reject { background: var(--error); }
+
+.inline-form { display: inline; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border); }
+th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+
+.cards { display: flex; gap: 16px; margin-bottom: 24px; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px 24px; flex: 1; }
+.card-value { font-size: 28px; font-weight: 700; }
+.card-label { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+
+.alert { padding: 10px 14px; border-radius: 4px; margin-bottom: 16px; font-size: 13px; }
+.alert-error { background: #3a1f1e; color: #ff9a94; border: 1px solid var(--error); }
+.alert-success { background: #14301f; color: #7fe0a8; border: 1px solid var(--success); }
+
+.badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+.badge-active { background: #14301f; color: #7fe0a8; }
+.badge-pending { background: #3a331e; color: #e0c37f; }
+.badge-degraded { background: #3a331e; color: #e0c37f; }
+.badge-failed, .badge-disabled { background: #3a1f1e; color: #ff9a94; }
+.badge-evidence-verified { background: #14301f; color: #7fe0a8; }
+.badge-evidence-source_reported { background: #1e2c3a; color: #7fb0e0; }
+.badge-evidence-inferred { background: #3a331e; color: #e0c37f; }
+.badge-evidence-unknown { background: #2b323c; color: var(--muted); }
+.badge-evidence-conflicted { background: #3a1f1e; color: #ff9a94; }
+
+.approval-card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+.approval-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+.draft-body { white-space: pre-wrap; font-family: inherit; background: var(--bg); padding: 12px; border-radius: 4px; }
+.evidence-used ul { margin: 4px 0; padding-left: 20px; }
+.approval-actions { display: flex; gap: 8px; margin-top: 12px; }

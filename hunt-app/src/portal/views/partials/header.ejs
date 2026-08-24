@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HUNT — <%= typeof title !== 'undefined' ? title : 'Portal' %></title>
+  <link rel="stylesheet" href="/portal-assets/style.css">
+</head>
+<body>
+<% if (typeof hideNav === 'undefined' || !hideNav) { %>
+<header class="topbar">
+  <div class="brand">HUNT</div>
+  <nav>
+    <a href="/portal/">Dashboard</a>
+    <a href="/portal/settings">Search Settings</a>
+    <a href="/portal/sources">Sources</a>
+    <a href="/portal/profile">Profile &amp; Evidence</a>
+    <a href="/portal/approvals">Approvals</a>
+  </nav>
+  <form method="post" action="/portal/logout" class="logout-form">
+    <button type="submit">Log out</button>
+  </form>
+</header>
+<% } %>
+<main class="content">

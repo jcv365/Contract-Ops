@@ -1,0 +1,54 @@
+<%- include('partials/header', { title: 'Search Settings' }) %>
+
+<h1>HUNT Search Settings</h1>
+<p class="muted">One value per line for list fields. This is the worldwide coverage matrix (CLAUDE.md rule 12) — HUNT will only report coverage for what's configured here.</p>
+
+<% if (saved) { %><div class="alert alert-success">Saved.</div><% } %>
+
+<form method="post" action="/portal/settings">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+  <div class="grid-2">
+    <label>
+      Countries (ISO codes)
+      <textarea name="countries" rows="6"><%= (hunt.countries || []).join('\n') %></textarea>
+    </label>
+    <label>
+      Regions
+      <textarea name="regions" rows="6"><%= (hunt.regions || []).join('\n') %></textarea>
+    </label>
+    <label>
+      Contract types
+      <textarea name="contractTypes" rows="6"><%= (hunt.contractTypes || []).join('\n') %></textarea>
+    </label>
+    <label>
+      Seniority levels
+      <textarea name="seniority" rows="6"><%= (hunt.seniority || []).join('\n') %></textarea>
+    </label>
+    <label>
+      Excluded keywords
+      <textarea name="excludedKeywords" rows="6"><%= (hunt.excludedKeywords || []).join('\n') %></textarea>
+    </label>
+    <label>
+      Allowed clearance levels
+      <textarea name="allowedClearanceLevels" rows="6"><%= (hunt.allowedClearanceLevels || ['NONE']).join('\n') %></textarea>
+    </label>
+    <label>
+      Required skills
+      <textarea name="requiredSkills" rows="6"><%= (hunt.requiredSkills || []).join('\n') %></textarea>
+    </label>
+    <label>
+      Preferred skills
+      <textarea name="preferredSkills" rows="6"><%= (hunt.preferredSkills || []).join('\n') %></textarea>
+    </label>
+  </div>
+
+  <label class="checkbox-label">
+    <input type="checkbox" name="remoteOnly" <%= hunt.remoteOnly !== false ? 'checked' : '' %>>
+    Remote-only (excludes HYBRID/ONSITE — docs/03 hard filter)
+  </label>
+
+  <button type="submit">Save settings</button>
+</form>
+
+<%- include('partials/footer') %>

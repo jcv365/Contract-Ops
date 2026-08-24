@@ -1,3 +1,4 @@
+import path from 'node:path';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -7,6 +8,7 @@ import { env } from './config/env';
 import { logger } from './config/logger';
 import { runStartupPreflight } from './config/preflight';
 import { connectDatabase, disconnectDatabase } from './db/client';
+import { connectRedis, disconnectRedis } from './db/redis';
 import { registerAdapters } from './modules/source-adapters';
 import { sourcesRouter } from './api/routes/sources';
 import { huntRouter } from './api/routes/hunt';
@@ -18,14 +20,24 @@ import { outreachRouter } from './api/routes/outreach';
 import { auditRouter } from './api/routes/audit';
 import { repliesRouter } from './api/routes/replies';
 import { commercialRouter } from './api/routes/commercial';
+import { settingsRouter } from './api/routes/settings';
+import { profileRouter } from './api/routes/profile';
+import { evidenceRouter } from './api/routes/evidence';
 import { requireApiKey } from './api/middleware/api-key';
 import { resolveTenant } from './api/middleware/tenant';
+import { portalRouter, PORTAL_VIEWS_DIR } from './portal/router';
+import { buildSessionMiddleware } from './portal/session';
 
 const app = express();
+
+app.set('view engine', 'ejs');
+app.set('views', PORTAL_VIEWS_DIR);
 
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: false })); // portal form POSTs
+app.use('/portal-assets', express.static(path.join(__dirname, 'portal', 'public')));
 app.use(
   rateLimit({
     windowMs: env.RATE_LIMIT_WINDOW_MS,
@@ -50,9 +62,15 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Least privilege (docs-pack/docs/14/28): every route below this line
-// requires the API key. /health is deliberately exempt so container
-// orchestration healthchecks work without a credential.
+// Admin portal: session-authenticated (portalRouter itself gates every
+// route past /login/logout via requirePortalSession), deliberately
+// mounted BEFORE the API key gate below — a human at a browser doesn't
+// carry an X-Api-Key, they carry a session cookie instead.
+app.use(buildSessionMiddleware());
+app.use('/portal', portalRouter);
+
+// Least privilege (docs-pack/docs/14/28): every JSON API route below this
+// line requires the API key. /health and /portal are the only exemptions.
 app.use(requireApiKey);
 app.use(resolveTenant);
 
@@ -66,6 +84,9 @@ app.use('/outreach', outreachRouter);
 app.use('/audit', auditRouter);
 app.use('/replies', repliesRouter);
 app.use('/commercial', commercialRouter);
+app.use('/settings', settingsRouter);
+app.use('/profile', profileRouter);
+app.use('/evidence', evidenceRouter);
 
 // docs-pack/docs/15: "reject unknown unsafe input" — a ZodError becomes a
 // 400 with the validation detail; anything else is an unhandled 500,
@@ -82,6 +103,7 @@ app.use((err: unknown, req: express.Request, res: express.Response, _next: expre
 async function start(): Promise<void> {
   runStartupPreflight();
   await connectDatabase();
+  await connectRedis();
   registerAdapters();
 
   const server = app.listen(env.PORT, env.HOST, () => {
@@ -92,6 +114,7 @@ async function start(): Promise<void> {
     logger.info({ signal }, 'Shutting down');
     server.close();
     await disconnectDatabase();
+    await disconnectRedis();
     process.exit(0);
   };
   process.on('SIGTERM', () => void shutdown('SIGTERM'));

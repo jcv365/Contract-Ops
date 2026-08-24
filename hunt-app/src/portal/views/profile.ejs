@@ -1,0 +1,89 @@
+<%- include('partials/header', { title: 'Profile & Evidence' }) %>
+
+<h1>Profile</h1>
+<p class="muted">docs/01: "The approved profile and evidence must come from the user's actual profile repository/data." Nothing here is pre-filled or guessed.</p>
+
+<form method="post" action="/portal/profile">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <label>
+    Headline
+    <input type="text" name="headline" value="<%= profile && profile.headline || '' %>">
+  </label>
+  <label>
+    Summary
+    <textarea name="summary" rows="4"><%= profile && profile.summary || '' %></textarea>
+  </label>
+  <div class="grid-2">
+    <label>
+      Skills (one per line)
+      <textarea name="skills" rows="6"><%= (profile && profile.skills || []).join('\n') %></textarea>
+    </label>
+    <label>
+      Certifications (one per line)
+      <textarea name="certifications" rows="6"><%= (profile && profile.certifications || []).join('\n') %></textarea>
+    </label>
+  </div>
+  <label>
+    Domains (one per line)
+    <textarea name="domains" rows="3"><%= (profile && profile.domains || []).join('\n') %></textarea>
+  </label>
+  <button type="submit">Save profile</button>
+</form>
+
+<h1>Evidence</h1>
+<p class="muted">Only VERIFIED and SOURCE_REPORTED evidence can be cited by BIDOPS (ADR-004). INFERRED/UNKNOWN/CONFLICTED are visible here but never presented as fact.</p>
+
+<table>
+  <thead><tr><th>Claim</th><th>Source</th><th>State</th><th>Confidence</th><th></th></tr></thead>
+  <tbody>
+    <% evidence.forEach(function(e) { %>
+      <tr>
+        <td><%= e.claim %></td>
+        <td class="muted"><%= e.source %></td>
+        <td><span class="badge badge-evidence-<%= e.state.toLowerCase() %>"><%= e.state %></span></td>
+        <td><%= e.confidence %></td>
+        <td>
+          <% if (e.state !== 'VERIFIED') { %>
+            <form method="post" action="/portal/evidence/<%= e.id %>/verify" class="inline-form">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button type="submit">Mark verified</button>
+            </form>
+          <% } %>
+        </td>
+      </tr>
+    <% }) %>
+    <% if (evidence.length === 0) { %>
+      <tr><td colspan="5" class="muted">No evidence yet — add your first claim below.</td></tr>
+    <% } %>
+  </tbody>
+</table>
+
+<h2>Add evidence</h2>
+<form method="post" action="/portal/evidence">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <label>
+    Claim
+    <input type="text" name="claim" required placeholder="e.g. Microsoft Certified: Azure Solutions Architect Expert">
+  </label>
+  <label>
+    Source
+    <input type="text" name="source" required placeholder="e.g. Microsoft Learn certification record">
+  </label>
+  <div class="grid-2">
+    <label>
+      State
+      <select name="state">
+        <% evidenceStates.forEach(function(state) { %>
+          <option value="<%= state %>" <%= state === 'SOURCE_REPORTED' ? 'selected' : '' %>><%= state %></option>
+        <% }) %>
+      </select>
+    </label>
+    <label>
+      Confidence (0-1)
+      <input type="number" name="confidence" min="0" max="1" step="0.05" value="0.9">
+    </label>
+  </div>
+  <button type="submit">Add evidence</button>
+</form>
+
+<%- include('partials/footer') %>

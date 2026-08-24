@@ -1,0 +1,32 @@
+<%- include('partials/header', { title: 'Sources' }) %>
+
+<h1>Sources</h1>
+<p class="muted">Per docs/22, a source only becomes ACTIVE after its compliance record (terms, licence, permitted extraction method) has been reviewed.</p>
+
+<table>
+  <thead><tr><th>Source</th><th>Type</th><th>Status</th><th>Reliability</th><th>Notes</th><th></th></tr></thead>
+  <tbody>
+    <% sources.forEach(function(source) { %>
+      <tr>
+        <td><%= source.name %> <span class="muted">(<%= source.sourceId %>)</span></td>
+        <td><%= source.type %></td>
+        <td><span class="badge badge-<%= source.adapterStatus.toLowerCase() %>"><%= source.adapterStatus %></span></td>
+        <td><%= source.reliabilityScore %></td>
+        <td class="muted"><%= source.notes || '' %></td>
+        <td>
+          <form method="post" action="/portal/sources/<%= source.id %>" class="inline-form">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="notes" value="<%= source.notes || '' %>">
+            <label class="checkbox-label">
+              <input type="checkbox" name="enabled" <%= source.adapterStatus === 'ACTIVE' ? 'checked' : '' %>>
+              Active
+            </label>
+            <button type="submit">Save</button>
+          </form>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+
+<%- include('partials/footer') %>
