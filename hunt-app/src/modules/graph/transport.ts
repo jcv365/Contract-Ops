@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { logger } from '../../config/logger';
 import { env } from '../../config/env';
+import { prisma } from '../../db/client';
 import { decryptToken } from './token-crypto';
 
 export interface OutboundAttachment {
@@ -124,4 +125,41 @@ let mockTransportSingleton: MockGraphTransport | undefined;
 export function getMockGraphTransport(): GraphTransport {
   if (!mockTransportSingleton) mockTransportSingleton = new MockGraphTransport();
   return mockTransportSingleton;
+}
+
+// The gap this closes: ENABLE_GRAPH_SEND was read by env.ts/preflight.ts/
+// the portal's read-only status page, but nothing in the actual send path
+// ever consulted it — sendApprovedDraft()'s default parameter always
+// resolved to the mock, and no code anywhere ever constructed a
+// RealGraphTransport. This is the single place that decides which
+// transport a send actually uses.
+//
+// Full OAuth acquisition (authorize/exchange/refresh) is graph/oauth.ts,
+// a later sprint — this only ever READS an OAuthToken that already exists.
+// Until that file exists, ENABLE_GRAPH_SEND=true with no stored token
+// falls back to the mock rather than throwing, so the rest of the send
+// path (approval, idempotency, suppression, audit) stays exercisable.
+export async function getGraphTransport(userId: string): Promise<GraphTransport> {
+  if (!env.ENABLE_GRAPH_SEND) return getMockGraphTransport();
+
+  const token = await prisma.oAuthToken.findUnique({
+    where: { userId_provider: { userId, provider: 'MICROSOFT_GRAPH' } },
+  });
+
+  if (!token) {
+    logger.warn(
+      { userId },
+      'ENABLE_GRAPH_SEND=true but no Microsoft Graph OAuth token is on file for this user — falling back to MockGraphTransport until the Graph connection is completed'
+    );
+    return getMockGraphTransport();
+  }
+
+  if (token.expiresAt && token.expiresAt.getTime() < Date.now()) {
+    // Token refresh is graph/oauth.ts (not yet built) — a stale token is
+    // treated the same as no token, never used to attempt a real send.
+    logger.warn({ userId }, 'Stored Microsoft Graph OAuth token has expired — falling back to MockGraphTransport (token refresh is not yet implemented)');
+    return getMockGraphTransport();
+  }
+
+  return new RealGraphTransport(token.encryptedAccessToken);
 }

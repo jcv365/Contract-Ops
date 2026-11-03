@@ -23,6 +23,10 @@ import { commercialRouter } from './api/routes/commercial';
 import { settingsRouter } from './api/routes/settings';
 import { profileRouter } from './api/routes/profile';
 import { evidenceRouter } from './api/routes/evidence';
+import { suppressionsRouter } from './api/routes/suppressions';
+import { siteComplianceRouter } from './api/routes/site-compliance';
+import { emailsRouter } from './api/routes/emails';
+import { attachmentsRouter } from './api/routes/attachments';
 import { requireApiKey } from './api/middleware/api-key';
 import { resolveTenant } from './api/middleware/tenant';
 import { portalRouter, PORTAL_VIEWS_DIR } from './portal/router';
@@ -112,6 +116,10 @@ app.use('/commercial', commercialRouter);
 app.use('/settings', settingsRouter);
 app.use('/profile', profileRouter);
 app.use('/evidence', evidenceRouter);
+app.use('/suppressions', suppressionsRouter);
+app.use('/site-compliance', siteComplianceRouter);
+app.use('/emails', emailsRouter);
+app.use('/attachments', attachmentsRouter);
 
 // docs-pack/docs/15: "reject unknown unsafe input" — a ZodError becomes a
 // 400 with the validation detail; anything else is an unhandled 500,

@@ -5,6 +5,10 @@ import { logger } from '../../config/logger';
 import { GraphTransport, getMockGraphTransport } from './transport';
 import { decideSend, ExistingSendStatus } from './idempotency';
 import { validateAttachment } from './attachment-validation';
+import { suppressionService } from '../suppression/service';
+import { recomputeOutreachState } from '../outreach-state/service';
+import { readAttachmentBuffer } from '../attachments/service';
+import { OutboundAttachment } from './transport';
 
 export class SendError extends Error {}
 
@@ -25,10 +29,13 @@ export async function sendApprovedDraft(draftId: string, transport: GraphTranspo
 
   // Defence in depth: re-check suppression at send time, not just at
   // review/approval time — a suppression could have been added in between.
-  const suppressed = await prisma.suppression.findUnique({ where: { email: draft.recipientEmail } });
-  if (suppressed) {
+  // Matches both the exact address and its registrable domain (a company
+  // that asked never to be contacted again previously fell through this
+  // check if the specific address hadn't itself been suppressed).
+  const suppression = await suppressionService.check(draft.recipientEmail);
+  if (suppression.suppressed) {
     await prisma.outreachDraft.update({ where: { id: draftId }, data: { status: DraftStatus.FAILED } });
-    throw new SendError(`Recipient ${draft.recipientEmail} is on the suppression list (${suppressed.reason}) — refusing to send`);
+    throw new SendError(`Recipient ${draft.recipientEmail} is on the suppression list (${suppression.reason}, matched by ${suppression.scope}) — refusing to send`);
   }
 
   const decision = decideSend((draft.emailSend?.status as ExistingSendStatus) ?? null);
@@ -37,11 +44,19 @@ export async function sendApprovedDraft(draftId: string, transport: GraphTranspo
     return draft.emailSend;
   }
 
+  // Audit finding (this session): this loop validated metadata only and
+  // then the send below hardcoded `attachments: []` regardless — the file
+  // was never actually read or sent. Now reads each file once here (real
+  // content sniffing, not just the declared mimeType) and reuses the same
+  // buffer below rather than reading twice.
+  const outboundAttachments: OutboundAttachment[] = [];
   for (const link of draft.draftAttachments) {
-    const result = validateAttachment(link.attachment);
+    const { attachment, buffer } = await readAttachmentBuffer(link.attachmentId);
+    const result = validateAttachment(attachment, undefined, buffer);
     if (!result.valid) {
       throw new SendError(`Attachment ${link.attachment.id} failed validation: ${result.reason}`);
     }
+    outboundAttachments.push({ fileName: attachment.fileName, mimeType: attachment.mimeType, contentBase64: buffer.toString('base64') });
   }
 
   const idempotencyKey = draft.emailSend?.idempotencyKey ?? crypto.randomUUID();
@@ -58,7 +73,7 @@ export async function sendApprovedDraft(draftId: string, transport: GraphTranspo
       to: draft.recipientEmail,
       subject: draft.subject,
       bodyText: draft.body,
-      attachments: [], // attachment binary retrieval from storageRef is a Sprint 7+ concern; validated above but not yet fetched/encoded here
+      attachments: outboundAttachments,
       idempotencyKey,
     });
 
@@ -67,6 +82,12 @@ export async function sendApprovedDraft(draftId: string, transport: GraphTranspo
       data: { status: SendStatus.SENT, graphMessageId: result.graphMessageId, sentAt: new Date(), error: null },
     });
     await prisma.outreachDraft.update({ where: { id: draftId }, data: { status: DraftStatus.SENT } });
+
+    if (draft.recruiterId) {
+      await recomputeOutreachState({ entityType: 'Recruiter', entityId: draft.recruiterId, trigger: 'draft.sent' });
+    } else if (draft.companyId) {
+      await recomputeOutreachState({ entityType: 'Company', entityId: draft.companyId, trigger: 'draft.sent' });
+    }
 
     await prisma.auditEvent.create({
       data: {

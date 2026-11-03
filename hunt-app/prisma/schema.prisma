@@ -267,6 +267,16 @@ model Company {
   score                   Float            @default(0)
   outreachReadiness       CompanyReadiness @default(NOT_READY)
   outreachReadinessReason String?
+  // §88: recorded when org-website discovery (Sprint E) finds a contact
+  // form but no usable email address. Never auto-submitted in Phase 1.
+  contactFormUrl          String?
+  // §85 — lifecycle cache; full history in OutreachStateEvent.
+  outreachState           OutreachState    @default(DISCOVERED)
+  outreachStateReason     String?
+  outreachStateAt         DateTime         @default(now())
+  // §84 — explainable target score (contact-scoring/company-target.ts).
+  targetScore             Float            @default(0)
+  targetScoreBreakdown    Json             @default("{}")
   provenance              Json             @default("{}")
   createdAt               DateTime         @default(now())
   updatedAt               DateTime         @updatedAt
@@ -319,6 +329,16 @@ model Recruiter {
   lastContact             DateTime?
   responseHistory         Json               @default("[]")
   opportunityHistory      Json               @default("[]")
+  // §85 — lifecycle cache; full history in OutreachStateEvent.
+  outreachState           OutreachState       @default(DISCOVERED)
+  outreachStateReason     String?
+  outreachStateAt         DateTime            @default(now())
+  // §73/§82/§83
+  roleCategory            ContactRoleCategory @default(UNKNOWN)
+  contactQualityScore     Float               @default(0)
+  contactQualityBreakdown Json                @default("{}")
+  targetScore             Float               @default(0)
+  targetScoreBreakdown    Json                @default("{}")
   createdAt                DateTime          @default(now())
   updatedAt                DateTime          @updatedAt
 
@@ -361,13 +381,25 @@ model RecruiterEmail {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
-  recruiter Recruiter? @relation(fields: [recruiterId], references: [id], onDelete: Cascade)
-  company   Company?   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  // §74/§75 additions — additive only. classification is a DERIVED column
+  // (see classification.ts), never written directly by a route handler.
+  classification    EmailClassification @default(UNVERIFIED)
+  classifiedAt      DateTime?
+  normalisedAddress String?
+  bouncedAt         DateTime?
+  bounceThreadId    String?
+  bounceDetail      Json                @default("{}")
+
+  recruiter     Recruiter?               @relation(fields: [recruiterId], references: [id], onDelete: Cascade)
+  company       Company?                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  verifications EmailVerification[]
+  observations  EmailSourceObservation[]
 
   @@unique([email])
   @@index([recruiterId])
   @@index([companyId])
   @@index([verified])
+  @@index([classification])
   @@map("recruiter_emails")
 }
 
@@ -377,6 +409,204 @@ enum EmailType {
   TEAM
   COMPANY
   INFERRED
+}
+
+// ============================================
+// Email Intelligence (docs-pack §70-97 — Recruiter & Company Email Engine)
+//
+// EmailType above stays the STRUCTURAL axis (who the address belongs to).
+// These add the EVIDENTIAL axis (what a verification attempt concluded) and
+// a derived, user-facing EmailClassification projecting both onto the six
+// labels in §74. This is additive: RecruiterEmail.verified/verificationSource/
+// verifiedAt remain as a maintained denormalisation of the latest
+// EmailVerification row so readiness.ts and existing views need no changes.
+// See TRACEABILITY.md R-29+ and AUDIT-REPORT.md for the reconciliation.
+// ============================================
+
+enum EmailVerificationResult {
+  VALID
+  INVALID
+  RISKY
+  UNKNOWN
+}
+
+// §74. Derived by src/modules/email-intelligence/classification.ts from
+// (EmailType, latest EmailVerificationResult) — never set directly.
+enum EmailClassification {
+  VERIFIED_NAMED
+  VERIFIED_TEAM
+  VERIFIED_COMPANY
+  UNVERIFIED
+  INVALID
+  UNKNOWN
+}
+
+// §80 source priority — enum declaration order IS the priority order.
+enum EmailSourceKind {
+  OFFICIAL_COMPANY_SOURCE
+  OFFICIAL_RECRUITER_PAGE
+  PUBLIC_BUSINESS_SOURCE
+  ENRICHMENT_PROVIDER
+  VERIFICATION_PROVIDER
+  CONTACT_FORM
+  OPERATOR_ENTERED
+}
+
+// §75. Append-only verification attempt record — never mutated, never
+// deleted. "Only VALID may become EMAIL_READY. Do not upgrade UNKNOWN to
+// VALID." is enforced by src/modules/email-intelligence/verification-decision.ts
+// (pure), not by trusting this table's caller.
+model EmailVerification {
+  id               String                  @id @default(uuid())
+  recruiterEmailId String
+  address          String
+  providerId       String
+  result           EmailVerificationResult
+  checkedAt        DateTime                @default(now())
+  method           String
+  confidence       Float                   @default(0)
+  sourceUrl        String?
+  conclusive       Boolean                 @default(false)
+  chainPosition    Int                     @default(0)
+  detail           Json                    @default("{}")
+  createdAt        DateTime                @default(now())
+
+  recruiterEmail RecruiterEmail @relation(fields: [recruiterEmailId], references: [id], onDelete: Cascade)
+
+  @@index([recruiterEmailId, checkedAt])
+  @@index([result])
+  @@map("email_verifications")
+}
+
+// The §76/§81 published-source proof behind a VALID verdict — a page we
+// actually fetched, with a content hash so a later re-check can detect the
+// page changed. @@unique on (email, url, method) makes a second observation
+// of the same fact a merge (§90), never a duplicate row.
+model EmailSourceObservation {
+  id               String          @id @default(uuid())
+  recruiterEmailId String
+  sourceUrl        String
+  sourceKind       EmailSourceKind
+  observedAt       DateTime        @default(now())
+  extractionMethod String
+  pageTitle        String?
+  contextSnippet   String?
+  contentHash      String
+  domainMatch      Boolean         @default(false)
+  personName       String?
+  robotsAllowed    Boolean         @default(true)
+
+  recruiterEmail RecruiterEmail @relation(fields: [recruiterEmailId], references: [id], onDelete: Cascade)
+
+  @@unique([recruiterEmailId, sourceUrl, extractionMethod])
+  @@index([recruiterEmailId])
+  @@map("email_source_observations")
+}
+
+// docs/22 compliance record, one per registrable domain — "before enabling
+// a source adapter, record: terms URL, licence, permitted extraction
+// method, rate limits, attribution requirement... If uncertain, disable
+// the adapter and document the issue." status reuses AdapterStatus so this
+// follows the same PENDING->ACTIVE lifecycle as Source, and the same
+// "cannot be ACTIVE without a human review" enforcement pattern as
+// SourceActivationError — here enforced by lastReviewedAt being required,
+// not just an adapter existing.
+model SiteCompliancePolicy {
+  id                  String        @id @default(uuid())
+  domain              String        @unique
+  robotsFetchedAt     DateTime?
+  robotsStatus        String?
+  robotsBody          String?
+  crawlDelaySeconds   Int?
+  requestsPerMinute   Int           @default(6)
+  termsUrl            String?
+  licence             String?
+  permittedMethod     String?
+  attributionRequired Boolean       @default(false)
+  redistributionNotes String?
+  privacyNotes        String?
+  lastReviewedAt      DateTime?
+  status              AdapterStatus @default(PENDING)
+  notes               String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  fetches WebFetchLog[]
+
+  @@index([status])
+  @@map("site_compliance_policies")
+}
+
+// One row per attempted fetch, success or failure — the audit trail
+// docs/17 requires, and what lets a compliance review answer "what did
+// this system actually request from this domain" without trusting memory.
+model WebFetchLog {
+  id            String   @id @default(uuid())
+  policyId      String?
+  url           String
+  method        String   @default("GET")
+  httpStatus    Int?
+  robotsAllowed Boolean
+  contentHash   String?
+  bytes         Int?
+  latencyMs     Int?
+  error         String?
+  fetchedAt     DateTime @default(now())
+
+  policy SiteCompliancePolicy? @relation(fields: [policyId], references: [id], onDelete: SetNull)
+
+  @@index([url, fetchedAt])
+  @@index([policyId])
+  @@map("web_fetch_logs")
+}
+
+// §85 — the lifecycle of a CONTACT, distinct from DraftStatus (the
+// lifecycle of a MESSAGE, unchanged below). SUPPRESSED is absorbing —
+// outreach-state/machine.ts enforces that a suppressed contact can never
+// transition back out of it.
+enum OutreachState {
+  DISCOVERED
+  RESEARCHING
+  CONTACT_IDENTIFIED
+  EMAIL_FOUND
+  EMAIL_VERIFIED
+  OUTREACH_READY
+  DRAFTED
+  AWAITING_APPROVAL
+  CONTACTED
+  RESPONDED
+  FOLLOW_UP
+  CONTACT_FORM_AVAILABLE
+  NO_USABLE_CONTACT
+  SUPPRESSED
+}
+
+// §73 contact role taxonomy — "do not automatically target HR."
+enum ContactRoleCategory {
+  RECRUITER_ROLE
+  COMPANY_DECISION_ROLE
+  HR_ROLE
+  OTHER
+  UNKNOWN
+}
+
+// Append-only history behind every OutreachState transition (§85/§89) —
+// the current column on Recruiter/Company is a cache of the latest row
+// here, never the only record.
+model OutreachStateEvent {
+  id         String         @id @default(uuid())
+  tenantId   String         @default("default")
+  entityType String
+  entityId   String
+  fromState  OutreachState?
+  toState    OutreachState
+  trigger    String
+  reason     String
+  actor      String         @default("system")
+  createdAt  DateTime       @default(now())
+
+  @@index([entityType, entityId, createdAt])
+  @@map("outreach_state_events")
 }
 
 // ============================================

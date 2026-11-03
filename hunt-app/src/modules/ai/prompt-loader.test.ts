@@ -14,7 +14,7 @@ describe('loadPrompt', () => {
     expect(a.version).toBe(b.version);
   });
 
-  it('loads all six prompt files referenced by docs-pack/docs/00-23', () => {
+  it('loads all seven prompt files (the original six plus cv-extraction, added for CV import)', () => {
     for (const name of [
       'recruiter-research',
       'email-generation',
@@ -22,6 +22,7 @@ describe('loadPrompt', () => {
       'hallucination-check',
       'reply-classification',
       'opportunity-extraction',
+      'cv-extraction',
     ] as const) {
       expect(() => loadPrompt(name)).not.toThrow();
     }

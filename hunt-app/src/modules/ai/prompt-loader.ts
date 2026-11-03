@@ -19,6 +19,7 @@ const PROMPT_FILES: Record<string, string> = {
   'hallucination-check': 'hallucination-check.md',
   'reply-classification': 'reply-classification.md',
   'opportunity-extraction': 'opportunity-extraction.md',
+  'cv-extraction': 'cv-extraction.md',
 };
 
 export interface LoadedPrompt {

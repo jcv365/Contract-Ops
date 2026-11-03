@@ -1,0 +1,51 @@
+<%- include('partials/header', { title: 'Discovery' }) %>
+
+<h1>Discovery</h1>
+<p class="muted">Search results are claims, not facts — a company appearing here means it turned up in a search, not that its partner status is verified. Review the source before approving. Approved candidates become Companies exactly like manual entry, and "Discover emails" then finds a real contact on their own site.</p>
+
+<% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
+<% if (!enabled) { %>
+  <p class="muted">ENABLE_SEARCH_DISCOVERY is off, or BRAVE_SEARCH_API_KEY is not configured — searches will return no candidates until both are set.</p>
+<% } %>
+
+<form method="post" action="/portal/discovery/search">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <div class="grid-2">
+    <label>
+      Mode
+      <select name="mode">
+        <option value="VENDOR_PARTNER">Vendor partner</option>
+        <option value="REGIONAL_RECRUITER">Regional recruiter</option>
+      </select>
+    </label>
+    <label>Vendor (vendor-partner mode) <input type="text" name="vendor" placeholder="Microsoft / AWS / Google Cloud"></label>
+    <label>Region (regional-recruiter mode) <input type="text" name="region" placeholder="e.g. United Kingdom"></label>
+    <label>Keywords, comma-separated <input type="text" name="keywords" placeholder="Azure, cloud architecture"></label>
+  </div>
+  <button type="submit">Search</button>
+</form>
+
+<% if (candidates && candidates.length > 0) { %>
+  <h2>Candidates</h2>
+  <% candidates.forEach(function(c, i) { %>
+    <div class="approval-card">
+      <div class="approval-header">
+        <strong><%= c.name %></strong>
+        <span class="muted"><%= c.website || 'no website extracted' %></span>
+      </div>
+      <p class="muted"><%= c.snippet %></p>
+      <p class="muted">Source: <a href="<%= c.sourceUrl %>"><%= c.sourceUrl %></a> — query: "<%= c.searchQuery %>"</p>
+      <div class="approval-actions">
+        <form method="post" action="/portal/discovery/approve" class="inline-form">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="hidden" name="index" value="<%= i %>">
+          <button type="submit" class="btn-approve">Approve — add as Company</button>
+        </form>
+      </div>
+    </div>
+  <% }) %>
+<% } else if (candidates) { %>
+  <p class="muted">No candidates found for that search.</p>
+<% } %>
+
+<%- include('partials/footer') %>

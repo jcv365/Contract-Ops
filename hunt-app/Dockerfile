@@ -58,6 +58,15 @@ COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 # must ship inside the image alongside the app, one level up.
 COPY docs-pack /docs-pack
 
+# Attachment storage (modules/attachments/service.ts), volume-mounted in
+# docker-compose.yml so uploads survive a container recreate. The mount
+# point must exist with nodejs:nodejs ownership BEFORE `USER nodejs`
+# below — a named volume takes its initial ownership from whatever is
+# already at the mount point in the image when first populated, and this
+# container never runs as root, so an unprepared mount point would fail
+# every write with EACCES.
+RUN mkdir -p /app/storage/attachments && chown -R nodejs:nodejs /app/storage
+
 LABEL org.opencontainers.image.revision=$GIT_SHA
 ENV GIT_SHA=$GIT_SHA
 ENV NODE_ENV=production

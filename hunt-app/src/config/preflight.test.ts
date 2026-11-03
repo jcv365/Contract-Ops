@@ -86,4 +86,19 @@ describe('runStartupPreflight', () => {
     const { runStartupPreflight } = await loadPreflight({ NODE_ENV: 'development' });
     expect(() => runStartupPreflight()).not.toThrow();
   });
+
+  // rule 14 — web-fetch discovery must identify itself honestly before it
+  // can run at all.
+  it('refuses to boot with ENABLE_WEB_DISCOVERY=true but no WEB_FETCH_CONTACT_URL', async () => {
+    const { runStartupPreflight, PreflightError } = await loadPreflight({ ENABLE_WEB_DISCOVERY: 'true' });
+    expect(() => runStartupPreflight()).toThrow(PreflightError);
+  });
+
+  it('passes with ENABLE_WEB_DISCOVERY=true and WEB_FETCH_CONTACT_URL set', async () => {
+    const { runStartupPreflight } = await loadPreflight({
+      ENABLE_WEB_DISCOVERY: 'true',
+      WEB_FETCH_CONTACT_URL: 'https://example.com/about-this-bot',
+    });
+    expect(() => runStartupPreflight()).not.toThrow();
+  });
 });

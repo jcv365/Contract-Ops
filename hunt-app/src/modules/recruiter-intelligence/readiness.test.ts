@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { evaluateRecruiterReadiness, selectBestEmail } from './readiness';
-import { EmailType, RelationshipStatus, GreetingMode } from '../../domain/types';
+import { EmailType, RelationshipStatus, GreetingMode, EmailClassification } from '../../domain/types';
 
 const base = {
   hasCompany: true,
@@ -103,6 +103,52 @@ describe('evaluateRecruiterReadiness', () => {
 
   it('refuses when no email is on file at all', () => {
     expect(evaluateRecruiterReadiness(base).ready).toBe(false);
+  });
+
+  // §95 mandatory test #20 (docs-pack §70-97): even a verified/boolean-true
+  // email cannot bypass the §74 classification gate once a classification
+  // has been computed for it.
+  it('refuses a bestEmail whose §74 classification is not VERIFIED_* even when the legacy verified flag is true', () => {
+    const result = evaluateRecruiterReadiness({
+      ...base,
+      bestEmail: {
+        emailType: EmailType.PERSONAL,
+        verified: true,
+        verificationSource: 'org-website-discovery',
+        verifiedAt: new Date(),
+        classification: EmailClassification.UNKNOWN,
+      },
+    });
+    expect(result.ready).toBe(false);
+    expect(result.reason).toContain('§74');
+  });
+
+  it('permits a bestEmail whose §74 classification is VERIFIED_NAMED', () => {
+    const result = evaluateRecruiterReadiness({
+      ...base,
+      bestEmail: {
+        emailType: EmailType.PERSONAL,
+        verified: true,
+        verificationSource: 'org-website-discovery',
+        verifiedAt: new Date(),
+        classification: EmailClassification.VERIFIED_NAMED,
+      },
+    });
+    expect(result.ready).toBe(true);
+    expect(result.greetingMode).toBe(GreetingMode.FIRST_NAME);
+  });
+
+  it('is unaffected by the classification gate when classification is omitted (legacy callers)', () => {
+    const result = evaluateRecruiterReadiness({
+      ...base,
+      bestEmail: {
+        emailType: EmailType.PERSONAL,
+        verified: true,
+        verificationSource: 'linkedin-cross-check',
+        verifiedAt: new Date(),
+      },
+    });
+    expect(result.ready).toBe(true);
   });
 });
 

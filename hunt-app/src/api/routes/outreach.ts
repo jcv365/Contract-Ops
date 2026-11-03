@@ -1,8 +1,9 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../db/client';
-import { approveDraft, rejectDraft, ApprovalError } from '../../modules/approval/service';
+import { submitForApproval, approveDraft, rejectDraft, ApprovalError } from '../../modules/approval/service';
 import { sendApprovedDraft, SendError } from '../../modules/graph/send-service';
+import { getGraphTransport } from '../../modules/graph/transport';
 import { DraftStatus } from '../../domain/types';
 
 export const outreachRouter = Router();
@@ -22,6 +23,18 @@ outreachRouter.get('/queue', async (req, res, next) => {
       orderBy: { createdAt: 'asc' },
     });
     res.json({ drafts });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// docs-pack/docs/09 state machine step: VALIDATED -> AWAITING_APPROVAL.
+// Was unreachable through any route before this — submitForApproval()
+// existed in modules/approval/service.ts with no caller anywhere.
+outreachRouter.post('/:draftId/submit', async (req, res, next) => {
+  try {
+    const draft = await submitForApproval(req.params.draftId);
+    res.json(draft);
   } catch (err) {
     next(err);
   }
@@ -57,7 +70,12 @@ outreachRouter.post('/:draftId/reject', async (req, res, next) => {
 // docs-pack/docs/15: POST /outreach/:draft_id/send
 outreachRouter.post('/:draftId/send', async (req, res, next) => {
   try {
-    const result = await sendApprovedDraft(req.params.draftId);
+    // getGraphTransport resolves the mock unless ENABLE_GRAPH_SEND=true
+    // AND a stored Graph OAuth token exists for this user (transport.ts) —
+    // 'default-user' matches the single-user convention used throughout
+    // this deployment (portal/router.ts, db/seed.ts).
+    const transport = await getGraphTransport('default-user');
+    const result = await sendApprovedDraft(req.params.draftId, transport);
     res.json(result);
   } catch (err) {
     next(err);

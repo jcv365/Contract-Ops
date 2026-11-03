@@ -1,0 +1,25 @@
+<%- include('partials/header', { title: 'Review CV Import' }) %>
+
+<h1>Review CV import</h1>
+<p class="muted">The AI proposed these claims from your uploaded document. Nothing becomes real evidence until you approve it — edit anything that's wrong, uncheck anything you don't want, and only checked claims are saved. Every claim is created with the state shown (never upgraded to VERIFIED automatically).</p>
+
+<% if (claims.length === 0) { %>
+  <p class="muted">No claims were proposed (or the review session expired) — try uploading again from <a href="/portal/profile">Profile &amp; Evidence</a>.</p>
+<% } else { %>
+<form method="post" action="/portal/profile/review-import">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <% claims.forEach(function(c, i) { %>
+    <div class="approval-card">
+      <label class="checkbox-label">
+        <input type="checkbox" name="approve_<%= i %>" checked>
+        <span class="badge badge-<%= c.state === 'SOURCE_REPORTED' ? 'active' : 'pending' %>"><%= c.state %></span>
+      </label>
+      <input type="text" name="claim_<%= i %>" value="<%= c.claim %>" style="width:100%">
+      <p class="muted">Source quote: "<%= c.sourceLocation %>"</p>
+    </div>
+  <% }) %>
+  <button type="submit">Save approved claims as evidence</button>
+</form>
+<% } %>
+
+<%- include('partials/footer') %>

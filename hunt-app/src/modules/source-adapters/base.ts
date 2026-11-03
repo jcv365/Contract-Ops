@@ -7,6 +7,7 @@ import {
 } from '../../domain/types';
 import { env } from '../../config/env';
 import { logger } from '../../config/logger';
+import { RateLimiter } from '../web-fetch/rate-limiter';
 
 // A RawOpportunity is deliberately NOT a canonical Opportunity. Mapping to
 // canonical form requires the real Source DB row (its UUID, rateLimit,
@@ -99,44 +100,6 @@ export class PermanentAdapterError extends Error {
     super(message);
     this.name = 'PermanentAdapterError';
     this.cause = cause;
-  }
-}
-
-// A minimal per-adapter token bucket honouring Source.rateLimit
-// (requests/minute). This is intentionally in-process only — Phase 1 is a
-// single-instance personal system, not a distributed one, so a shared
-// (Redis-backed) bucket is out of scope until that changes.
-class RateLimiter {
-  private tokens: number;
-  private readonly capacity: number;
-  private readonly refillPerMs: number;
-  private lastRefill: number;
-
-  constructor(requestsPerMinute: number) {
-    this.capacity = Math.max(1, requestsPerMinute);
-    this.tokens = this.capacity;
-    this.refillPerMs = this.capacity / 60_000;
-    this.lastRefill = Date.now();
-  }
-
-  private refill(): void {
-    const now = Date.now();
-    const elapsed = now - this.lastRefill;
-    if (elapsed <= 0) return;
-    this.tokens = Math.min(this.capacity, this.tokens + elapsed * this.refillPerMs);
-    this.lastRefill = now;
-  }
-
-  async acquire(): Promise<void> {
-    for (;;) {
-      this.refill();
-      if (this.tokens >= 1) {
-        this.tokens -= 1;
-        return;
-      }
-      const waitMs = Math.max(10, (1 - this.tokens) / this.refillPerMs);
-      await new Promise((resolve) => setTimeout(resolve, waitMs));
-    }
   }
 }
 

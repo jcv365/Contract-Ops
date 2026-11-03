@@ -1,0 +1,41 @@
+<%- include('partials/header', { title: 'Attachments' }) %>
+
+<h1>Attachments</h1>
+<p class="muted">Your CV and capability statement. BIDOPS attaches the most recent one of the kind it recommends when drafting an email — nothing is guessed or fabricated; upload the real documents here.</p>
+
+<% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
+
+<table>
+  <thead><tr><th>File</th><th>Kind</th><th>Size</th><th>Uploaded</th></tr></thead>
+  <tbody>
+    <% attachments.forEach(function(a) { %>
+      <tr>
+        <td><%= a.fileName %></td>
+        <td><span class="badge badge-active"><%= a.kind %></span></td>
+        <td class="muted"><%= Math.round(a.sizeBytes / 1024) %> KB</td>
+        <td class="muted"><%= a.createdAt.toISOString().slice(0, 10) %></td>
+      </tr>
+    <% }) %>
+    <% if (attachments.length === 0) { %>
+      <tr><td colspan="4" class="muted">Nothing uploaded yet.</td></tr>
+    <% } %>
+  </tbody>
+</table>
+
+<h2>Upload</h2>
+<form method="post" action="/portal/attachments" enctype="multipart/form-data">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <div class="grid-2">
+    <label>
+      Kind
+      <select name="kind">
+        <option value="CV">CV</option>
+        <option value="COMPANY_PROFILE">Capability statement</option>
+      </select>
+    </label>
+    <label>File (PDF or DOCX, 10MB max) <input type="file" name="file" accept=".pdf,.docx" required></label>
+  </div>
+  <button type="submit">Upload</button>
+</form>
+
+<%- include('partials/footer') %>

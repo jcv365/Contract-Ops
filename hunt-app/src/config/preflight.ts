@@ -27,6 +27,9 @@ export function runStartupPreflight(): void {
   if (env.NODE_ENV === 'production' && !env.SESSION_SECRET) {
     errors.push('NODE_ENV=production but SESSION_SECRET is not set — portal session cookies cannot be signed');
   }
+  if (env.ENABLE_WEB_DISCOVERY && !env.WEB_FETCH_CONTACT_URL) {
+    errors.push('ENABLE_WEB_DISCOVERY=true but WEB_FETCH_CONTACT_URL is not set — rule 14 requires every outbound request to identify itself honestly to the site it fetches');
+  }
   if (env.ENABLE_REPLY_INGESTION && !env.ENABLE_GRAPH_SEND) {
     // Not a hard requirement in every deployment topology, but reply
     // ingestion with no way to have ever sent anything is very likely a
@@ -44,6 +47,9 @@ export function runStartupPreflight(): void {
   }
   if (!env.ENABLE_GRAPH_SEND) {
     logger.warn('ENABLE_GRAPH_SEND=false — outreach send uses MockGraphTransport (NOT VERIFIED IN THIS ENVIRONMENT, no real mailbox involved)');
+  }
+  if (env.ENABLE_SEARCH_DISCOVERY && !env.BRAVE_SEARCH_API_KEY) {
+    logger.warn('ENABLE_SEARCH_DISCOVERY=true but BRAVE_SEARCH_API_KEY is not set — vendor-partner/regional-recruiter search will fail closed until it is configured');
   }
 
   logger.info('Startup preflight passed');

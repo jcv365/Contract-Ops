@@ -1,19 +1,39 @@
 import { DraftStatus, ApprovalDecision } from '@prisma/client';
 import { prisma } from '../../db/client';
 import { logger } from '../../config/logger';
+import { evaluateSubmittability } from '../outreach-state/gate';
+import { recomputeOutreachState } from '../outreach-state/service';
+import { EmailClassification, DraftStatus as DomainDraftStatus } from '../../domain/types';
 
 export class ApprovalError extends Error {}
 
 // docs-pack/docs/09 state machine step: VALIDATED -> AWAITING_APPROVAL.
 // Explicit, not automatic on review pass — the operator decides when a
 // validated draft actually goes into their approval queue (docs/16's
-// "pending approvals" list).
+// "pending approvals" list). §95 mandatory test #20 (outreach cannot
+// bypass verification) is enforced here via outreach-state/gate.ts's
+// evaluateSubmittability — a draft to a non-EMAIL_READY recipient cannot
+// be submitted regardless of its own DraftStatus.
 export async function submitForApproval(draftId: string) {
   const draft = await prisma.outreachDraft.findUniqueOrThrow({ where: { id: draftId } });
-  if (draft.status !== DraftStatus.VALIDATED) {
-    throw new ApprovalError(`Draft ${draftId} is ${draft.status}, not VALIDATED — cannot submit for approval`);
+
+  const recipient = await prisma.recruiterEmail.findFirst({ where: { email: draft.recipientEmail } });
+  const recipientClassification = (recipient?.classification as unknown as EmailClassification) ?? EmailClassification.UNVERIFIED;
+
+  const check = evaluateSubmittability({ draftStatus: draft.status as unknown as DomainDraftStatus, recipientClassification });
+  if (!check.allowed) {
+    throw new ApprovalError(`Draft ${draftId}: ${check.reason}`);
   }
-  return prisma.outreachDraft.update({ where: { id: draftId }, data: { status: DraftStatus.AWAITING_APPROVAL } });
+
+  const updated = await prisma.outreachDraft.update({ where: { id: draftId }, data: { status: DraftStatus.AWAITING_APPROVAL } });
+
+  if (draft.recruiterId) {
+    await recomputeOutreachState({ entityType: 'Recruiter', entityId: draft.recruiterId, trigger: 'draft.submit' });
+  } else if (draft.companyId) {
+    await recomputeOutreachState({ entityType: 'Company', entityId: draft.companyId, trigger: 'draft.submit' });
+  }
+
+  return updated;
 }
 
 export interface ApprovalActionInput {

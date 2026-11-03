@@ -1,8 +1,11 @@
 import { Prisma, RecruiterReadiness } from '@prisma/client';
 import { prisma } from '../../db/client';
 import { logger } from '../../config/logger';
-import { EmailType } from '../../domain/types';
+import { EmailType, EmailClassification, EmailVerificationResult } from '../../domain/types';
 import { evaluateRecruiterReadiness, selectBestEmail } from './readiness';
+import { suppressionService } from '../suppression/service';
+import { classifyEmail } from '../email-intelligence/classification';
+import { recomputeOutreachState } from '../outreach-state/service';
 
 export interface CreateRecruiterInput {
   companyId?: string;
@@ -52,10 +55,11 @@ export class RecruiterIntelligenceService {
     return prisma.recruiter.findUnique({ where: { id }, include: { emails: true, company: true } });
   }
 
-  async list(filters: { companyId?: string; region?: string; limit?: number; offset?: number } = {}) {
+  async list(filters: { companyId?: string; region?: string; tenantId?: string; limit?: number; offset?: number } = {}) {
     const where: Prisma.RecruiterWhereInput = {
       ...(filters.companyId ? { companyId: filters.companyId } : {}),
       ...(filters.region ? { region: filters.region } : {}),
+      ...(filters.tenantId ? { tenantId: filters.tenantId } : {}),
     };
     const [recruiters, total] = await Promise.all([
       prisma.recruiter.findMany({
@@ -78,16 +82,48 @@ export class RecruiterIntelligenceService {
     return email;
   }
 
-  // The only path by which verified/verificationSource/verifiedAt get
-  // set. Never called automatically by discovery or AI research — a human
-  // or an explicit external verification step must call this.
+  // The manual-assertion path by which verified/verificationSource/
+  // verifiedAt get set — never called automatically by discovery or AI
+  // research, only a human or an explicit external verification step. The
+  // deterministic chain (email-intelligence/service.ts:verifyRecruiterEmail)
+  // is the OTHER path to the same fields; both write a real
+  // EmailVerification row and derive classification the same way, so a
+  // recruiter verified either way is treated identically by the §74 gate
+  // in readiness.ts — a manual assertion isn't a second-class citizen,
+  // but it also isn't silently exempted from having an audit record.
   async verifyEmail(recruiterId: string, input: VerifyEmailInput) {
+    const existing = await prisma.recruiterEmail.findUniqueOrThrow({ where: { id: input.emailId } });
+    const checkedAt = new Date();
+
+    await prisma.emailVerification.create({
+      data: {
+        recruiterEmailId: input.emailId,
+        address: existing.email,
+        providerId: 'operator-assertion',
+        result: EmailVerificationResult.VALID as never,
+        checkedAt,
+        method: 'manual-operator-assertion',
+        confidence: 0.5, // asserted, not independently machine-checked — lower than the deterministic verifier's 0.95
+        conclusive: true,
+        chainPosition: 0,
+        detail: { verificationSource: input.verificationSource },
+      },
+    });
+
+    const classification = classifyEmail({ emailType: existing.emailType as unknown as EmailType, latestResult: EmailVerificationResult.VALID });
+
     const email = await prisma.recruiterEmail.update({
       where: { id: input.emailId },
-      data: { verified: true, verificationSource: input.verificationSource, verifiedAt: new Date() },
+      data: {
+        verified: true,
+        verificationSource: input.verificationSource,
+        verifiedAt: checkedAt,
+        classification: classification as never,
+        classifiedAt: checkedAt,
+      },
     });
     await this.recomputeReadiness(recruiterId);
-    logger.info({ recruiterId, emailId: input.emailId }, 'Recruiter email verified');
+    logger.info({ recruiterId, emailId: input.emailId, classification }, 'Recruiter email verified');
     return email;
   }
 
@@ -97,9 +133,9 @@ export class RecruiterIntelligenceService {
       include: { emails: true },
     });
 
-    const suppressed = await prisma.suppression.findFirst({
-      where: { email: { in: recruiter.emails.map((e) => e.email) } },
-    });
+    // Matches both an exact address and its registrable domain (R-08 gap
+    // fix — Suppression.domain was indexed but never queried before this).
+    const suppression = await suppressionService.checkAny(recruiter.emails.map((e) => e.email));
 
     const bestEmail = selectBestEmail(
       recruiter.emails.map((e) => ({
@@ -107,13 +143,19 @@ export class RecruiterIntelligenceService {
         verified: e.verified,
         verificationSource: e.verificationSource,
         verifiedAt: e.verifiedAt,
+        // §74 — once email-intelligence/service.ts has run a real
+        // verification chain on this address, its classification becomes
+        // the authority (readiness.ts's gate), not just the legacy
+        // verified boolean an operator could previously set by typing any
+        // string into a form.
+        classification: e.classification as unknown as EmailClassification,
       }))
     );
 
     const result = evaluateRecruiterReadiness({
       hasCompany: recruiter.companyId != null,
       relationshipStatus: recruiter.relationshipStatus as never,
-      suppressed: suppressed != null,
+      suppressed: suppression.suppressed,
       bestEmail,
     });
 
@@ -124,6 +166,8 @@ export class RecruiterIntelligenceService {
         outreachReadinessReason: result.reason,
       },
     });
+
+    await recomputeOutreachState({ entityType: 'Recruiter', entityId: recruiterId, trigger: 'readiness.recompute' });
   }
 }
 

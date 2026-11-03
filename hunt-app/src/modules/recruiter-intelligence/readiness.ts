@@ -1,10 +1,14 @@
-import { EmailType, RelationshipStatus, GreetingMode } from '../../domain/types';
+import { EmailType, RelationshipStatus, GreetingMode, EmailClassification } from '../../domain/types';
+import { isEmailReadyClassification } from '../email-intelligence/classification';
 
 export interface BestEmail {
   emailType: EmailType;
   verified: boolean;
   verificationSource?: string | null;
   verifiedAt?: Date | null;
+  // §74 label, optional so existing callers/tests that construct a
+  // BestEmail without it are unaffected — see the gate below.
+  classification?: EmailClassification;
 }
 
 export interface RecruiterReadinessInput {
@@ -45,6 +49,17 @@ export function evaluateRecruiterReadiness(input: RecruiterReadinessInput): Recr
   }
   if (input.bestEmail.emailType === EmailType.INFERRED) {
     return { ready: false, reason: 'Email is INFERRED (guessed) — never eligible for send, regardless of verification flag' };
+  }
+  // §74/§95 test #20: once a classification has been computed, it is the
+  // authority — only VERIFIED_NAMED/VERIFIED_TEAM/VERIFIED_COMPANY may
+  // proceed. Optional so records predating the email-intelligence module
+  // (classification undefined) fall through to the legacy boolean gate
+  // below unchanged.
+  if (input.bestEmail.classification && !isEmailReadyClassification(input.bestEmail.classification)) {
+    return {
+      ready: false,
+      reason: `Email classification is ${input.bestEmail.classification} — only VERIFIED_NAMED/VERIFIED_TEAM/VERIFIED_COMPANY are EMAIL_READY (§74)`,
+    };
   }
   if (!input.bestEmail.verified || !input.bestEmail.verificationSource || !input.bestEmail.verifiedAt) {
     return { ready: false, reason: 'Email is not independently verified with a recorded source and timestamp' };

@@ -1,5 +1,7 @@
 import path from 'node:path';
 import { Router } from 'express';
+import multer from 'multer';
+import { AttachmentKind } from '@prisma/client';
 import { prisma } from '../db/client';
 import { logger } from '../config/logger';
 import { requirePortalSession, loginRateLimiter, checkPortalPassword } from './auth';
@@ -7,16 +9,37 @@ import { getOrCreateCsrfToken, requireCsrfToken } from './csrf';
 import { sourceRegistryService, SourceActivationError } from '../modules/source-registry/service';
 import { adapterRegistry } from '../modules/source-adapters/base';
 import { evidenceService } from '../modules/evidence/service';
-import { approveDraft, rejectDraft } from '../modules/approval/service';
+import { submitForApproval, approveDraft, rejectDraft } from '../modules/approval/service';
 import { recruiterIntelligenceService } from '../modules/recruiter-intelligence/service';
 import { companyIntelligenceService } from '../modules/company-intelligence/service';
-import { AdapterStatus, EvidenceState, EmailType, CompanyType } from '../domain/types';
+import { suppressionService } from '../modules/suppression/service';
+import { listCompliancePolicies, updateCompliancePolicy, CompliancePolicyActivationError } from '../modules/web-fetch/compliance';
+import { verifyRecruiterEmail, discoverCompanyEmails, discoverRecruiterEmails } from '../modules/email-intelligence/service';
+import { saveAttachment, listAttachments } from '../modules/attachments/service';
+import { validateAttachment } from '../modules/graph/attachment-validation';
+import { runDiscovery, approveDiscoveryCandidate } from '../modules/company-discovery/service';
+import { DiscoveryQuery, DiscoveredCompanyCandidate } from '../modules/company-discovery/provider';
+import { extractTextFromDocument, proposeClaimsFromCv, ProposedClaim, CvExtractionError } from '../modules/evidence/cv-extraction';
+
+declare module 'express-session' {
+  interface SessionData {
+    discoveryCandidates?: DiscoveredCompanyCandidate[];
+    discoveryContext?: { mode: DiscoveryQuery['mode']; vendorOrRegion: string };
+    cvProposedClaims?: ProposedClaim[];
+  }
+}
+import { AdapterStatus, EvidenceState, EmailType, CompanyType, SuppressionReason } from '../domain/types';
 import { env } from '../config/env';
 
 export const portalRouter = Router();
 export const PORTAL_VIEWS_DIR = path.join(__dirname, 'views');
 
 const DEFAULT_USER_ID = 'default-user';
+// Shared multer instance, mounted only on specific routes (attachments,
+// CV import) — declared here (not inline where first used) because a
+// route registration line executes multer() immediately at module-load
+// time, so it must already be defined by then.
+const portalUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 // ============================================
 // Login / logout — the only routes reachable
@@ -245,6 +268,120 @@ portalRouter.post('/evidence/:id/verify', requireCsrfToken, async (req, res, nex
 });
 
 // ============================================
+// CV import — extract, propose (session-held, unsaved), review, approve.
+// Nothing becomes real Evidence until POST /profile/review-import.
+// ============================================
+
+portalRouter.post('/profile/import-cv', portalUpload.single('file'), requireCsrfToken, async (req, res, next) => {
+  try {
+    if (!req.file) {
+      res.redirect('/portal/profile');
+      return;
+    }
+    const text = await extractTextFromDocument(req.file.buffer, req.file.mimetype);
+    const claims = await proposeClaimsFromCv(text, req.file.originalname);
+    req.session.cvProposedClaims = claims;
+    res.redirect('/portal/profile/review-import');
+  } catch (err) {
+    if (err instanceof CvExtractionError) {
+      res.status(422).render('error', { csrfToken: getOrCreateCsrfToken(req.session), message: err.message });
+      return;
+    }
+    next(err);
+  }
+});
+
+portalRouter.get('/profile/review-import', (req, res) => {
+  res.render('review-import', { csrfToken: getOrCreateCsrfToken(req.session), claims: req.session.cvProposedClaims ?? [] });
+});
+
+portalRouter.post('/profile/review-import', requireCsrfToken, async (req, res, next) => {
+  try {
+    const claims = req.session.cvProposedClaims ?? [];
+    const profile = await prisma.profile.upsert({
+      where: { userId: DEFAULT_USER_ID },
+      update: {},
+      create: { userId: DEFAULT_USER_ID, skills: [], certifications: [], domains: [], projects: [], achievements: [], contractPreferences: {} },
+    });
+
+    for (let i = 0; i < claims.length; i++) {
+      if (req.body[`approve_${i}`] !== 'on') continue; // unchecked claims are simply not saved — the reject path
+      const claimText = String(req.body[`claim_${i}`] ?? claims[i].claim);
+      const state = (Object.values(EvidenceState) as string[]).includes(claims[i].state) ? (claims[i].state as EvidenceState) : EvidenceState.SOURCE_REPORTED;
+      await evidenceService.add({ profileId: profile.id, claim: claimText, source: claims[i].source, sourceLocation: claims[i].sourceLocation, confidence: 0.7, state });
+    }
+
+    req.session.cvProposedClaims = undefined;
+    res.redirect('/portal/profile');
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ============================================
+// Attachments — CV / capability statement. Mounted only on this route,
+// not globally, so it never interferes with express.json()/urlencoded()
+// used everywhere else in the app.
+// ============================================
+
+portalRouter.get('/attachments', async (req, res, next) => {
+  try {
+    const attachments = await listAttachments(DEFAULT_USER_ID);
+    res.render('attachments', { csrfToken: getOrCreateCsrfToken(req.session), attachments, error: null });
+  } catch (err) {
+    next(err);
+  }
+});
+
+portalRouter.post('/attachments', portalUpload.single('file'), requireCsrfToken, async (req, res, next) => {
+  try {
+    if (!req.file) {
+      const attachments = await listAttachments(DEFAULT_USER_ID);
+      res.status(400).render('attachments', { csrfToken: getOrCreateCsrfToken(req.session), attachments, error: 'No file was uploaded.' });
+      return;
+    }
+    const kind = Object.values(AttachmentKind).includes(req.body.kind) ? (req.body.kind as AttachmentKind) : AttachmentKind.OTHER;
+    const check = validateAttachment({ mimeType: req.file.mimetype, sizeBytes: req.file.size }, undefined, req.file.buffer);
+    if (!check.valid) {
+      const attachments = await listAttachments(DEFAULT_USER_ID);
+      res.status(422).render('attachments', { csrfToken: getOrCreateCsrfToken(req.session), attachments, error: check.reason });
+      return;
+    }
+    await saveAttachment({ fileName: req.file.originalname, mimeType: req.file.mimetype, buffer: req.file.buffer, kind, ownerId: DEFAULT_USER_ID });
+    res.redirect('/portal/attachments');
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ============================================
+// Drafts — the missing DRAFT/VALIDATED -> AWAITING_APPROVAL step.
+// submitForApproval() existed since Sprint 4 with no caller anywhere.
+// ============================================
+
+portalRouter.get('/drafts', async (req, res, next) => {
+  try {
+    const drafts = await prisma.outreachDraft.findMany({
+      where: { status: { in: ['DRAFT', 'VALIDATED'] } },
+      include: { validations: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.render('drafts', { csrfToken: getOrCreateCsrfToken(req.session), drafts });
+  } catch (err) {
+    next(err);
+  }
+});
+
+portalRouter.post('/drafts/:id/submit', requireCsrfToken, async (req, res, next) => {
+  try {
+    await submitForApproval(req.params.id);
+    res.redirect('/portal/drafts');
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ============================================
 // Outreach approval queue
 // ============================================
 
@@ -347,6 +484,15 @@ portalRouter.post('/companies/:id/emails', requireCsrfToken, async (req, res, ne
   }
 });
 
+portalRouter.post('/companies/:id/discover-emails', requireCsrfToken, async (req, res, next) => {
+  try {
+    await discoverCompanyEmails(req.params.id);
+    res.redirect(`/portal/companies/${req.params.id}`);
+  } catch (err) {
+    next(err);
+  }
+});
+
 portalRouter.post('/companies/:id/emails/:emailId/verify', requireCsrfToken, async (req, res, next) => {
   try {
     const source = String(req.body.verificationSource ?? '');
@@ -401,6 +547,15 @@ portalRouter.post('/recruiters', requireCsrfToken, async (req, res, next) => {
   }
 });
 
+portalRouter.post('/recruiters/:id/discover-emails', requireCsrfToken, async (req, res, next) => {
+  try {
+    await discoverRecruiterEmails(req.params.id);
+    res.redirect(`/portal/recruiters/${req.params.id}`);
+  } catch (err) {
+    next(err);
+  }
+});
+
 portalRouter.post('/recruiters/:id/emails', requireCsrfToken, async (req, res, next) => {
   try {
     const emailType = Object.values(EmailType).includes(req.body.emailType) ? req.body.emailType : EmailType.INFERRED;
@@ -417,6 +572,75 @@ portalRouter.post('/recruiters/:id/emails/:emailId/verify', requireCsrfToken, as
     if (source.length < 3) throw new Error('verificationSource must name a real, independent check (ADR-003) — never guessed');
     await recruiterIntelligenceService.verifyEmail(req.params.id, { emailId: req.params.emailId, verificationSource: source });
     res.redirect(`/portal/recruiters/${req.params.id}`);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ============================================
+// Automated email verification (Sprint D, email engine) — the §78/§79
+// deterministic failover chain, distinct from the manual-assertion forms
+// above. Shared by recruiter-detail.ejs and company-detail.ejs; redirects
+// back to whichever page the button was clicked from.
+// ============================================
+
+portalRouter.post('/emails/:emailId/verify', requireCsrfToken, async (req, res, next) => {
+  try {
+    await verifyRecruiterEmail(req.params.emailId);
+    const referer = req.get('Referer');
+    res.redirect(referer && referer.includes('/portal/') ? referer : '/portal/');
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ============================================
+// Discovery — vendor-partner / regional-recruiter search (Brave Search
+// API). Results are held in the session only until approved — nothing is
+// persisted as a Company until a human reviews the source and approves it
+// (ADR-004: a search hit is a claim, not a fact).
+// ============================================
+
+function splitKeywords(value: unknown): string[] {
+  return typeof value === 'string' ? value.split(',').map((s) => s.trim()).filter(Boolean) : [];
+}
+
+portalRouter.get('/discovery', (req, res) => {
+  res.render('discovery', {
+    csrfToken: getOrCreateCsrfToken(req.session),
+    enabled: env.ENABLE_SEARCH_DISCOVERY,
+    candidates: req.session.discoveryCandidates ?? null,
+    error: null,
+  });
+});
+
+portalRouter.post('/discovery/search', requireCsrfToken, async (req, res, next) => {
+  try {
+    const mode: DiscoveryQuery['mode'] = req.body.mode === 'REGIONAL_RECRUITER' ? 'REGIONAL_RECRUITER' : 'VENDOR_PARTNER';
+    const vendor = String(req.body.vendor ?? '').trim();
+    const region = String(req.body.region ?? '').trim();
+    const keywords = splitKeywords(req.body.keywords);
+
+    const candidates = await runDiscovery({ mode, vendor: vendor || undefined, region: region || undefined, keywords });
+    req.session.discoveryCandidates = candidates;
+    req.session.discoveryContext = { mode, vendorOrRegion: mode === 'VENDOR_PARTNER' ? vendor : region };
+
+    res.render('discovery', { csrfToken: getOrCreateCsrfToken(req.session), enabled: env.ENABLE_SEARCH_DISCOVERY, candidates, error: null });
+  } catch (err) {
+    next(err);
+  }
+});
+
+portalRouter.post('/discovery/approve', requireCsrfToken, async (req, res, next) => {
+  try {
+    const index = Number(req.body.index);
+    const candidate = req.session.discoveryCandidates?.[index];
+    if (!candidate || !req.session.discoveryContext) {
+      res.redirect('/portal/discovery');
+      return;
+    }
+    const companyId = await approveDiscoveryCandidate(candidate, req.session.discoveryContext.mode, req.session.discoveryContext.vendorOrRegion);
+    res.redirect(`/portal/companies/${companyId}`);
   } catch (err) {
     next(err);
   }
@@ -441,4 +665,80 @@ portalRouter.get('/graph-settings', (req, res) => {
     hasClientSecret: Boolean(env.AZURE_CLIENT_SECRET),
     hasRedirectUri: Boolean(env.GRAPH_REDIRECT_URI),
   });
+});
+
+// ============================================
+// Suppressions — docs/28's "suppression list" control. Existed only as a
+// schema table with no route of any kind before this.
+// ============================================
+
+portalRouter.get('/suppressions', async (req, res, next) => {
+  try {
+    const suppressions = await suppressionService.list();
+    res.render('suppressions', { csrfToken: getOrCreateCsrfToken(req.session), suppressions, reasons: Object.values(SuppressionReason) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+portalRouter.post('/suppressions', requireCsrfToken, async (req, res, next) => {
+  try {
+    const reason = Object.values(SuppressionReason).includes(req.body.reason) ? req.body.reason : SuppressionReason.MANUAL;
+    await suppressionService.create({
+      email: String(req.body.email ?? ''),
+      reason,
+      notes: req.body.notes || undefined,
+    });
+    res.redirect('/portal/suppressions');
+  } catch (err) {
+    next(err);
+  }
+});
+
+portalRouter.post('/suppressions/:id/delete', requireCsrfToken, async (req, res, next) => {
+  try {
+    await suppressionService.delete(req.params.id);
+    res.redirect('/portal/suppressions');
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ============================================
+// Site compliance — docs/22. New subsystem (Sprint C, email engine): a
+// domain cannot be fetched by org-website discovery (Sprint E) until a
+// human has reviewed its terms/licence/permitted method here.
+// ============================================
+
+portalRouter.get('/site-compliance', async (req, res, next) => {
+  try {
+    const policies = await listCompliancePolicies();
+    res.render('site-compliance', { csrfToken: getOrCreateCsrfToken(req.session), policies, error: null });
+  } catch (err) {
+    next(err);
+  }
+});
+
+portalRouter.post('/site-compliance/:domain', requireCsrfToken, async (req, res, next) => {
+  try {
+    // The "add new domain" form posts here with domain=new and the real
+    // domain in the body, since there is no existing row/id to target yet.
+    const domain = req.params.domain === 'new' ? String(req.body.domain ?? '') : req.params.domain;
+    await updateCompliancePolicy(domain, {
+      termsUrl: req.body.termsUrl || undefined,
+      licence: req.body.licence || undefined,
+      permittedMethod: req.body.permittedMethod || undefined,
+      notes: req.body.notes || undefined,
+      status: req.body.active === 'on' ? AdapterStatus.ACTIVE : AdapterStatus.PENDING,
+      markReviewed: req.body.markReviewed === 'on',
+    });
+    res.redirect('/portal/site-compliance');
+  } catch (err) {
+    if (err instanceof CompliancePolicyActivationError) {
+      const policies = await listCompliancePolicies();
+      res.status(422).render('site-compliance', { csrfToken: getOrCreateCsrfToken(req.session), policies, error: err.message });
+      return;
+    }
+    next(err);
+  }
 });

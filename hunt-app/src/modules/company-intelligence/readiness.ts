@@ -8,6 +8,12 @@ export interface CompanyReadinessInput {
   targetingReason?: string | null;
   proposition?: string | null;
   hasValidChannel: boolean;
+  // Gap found in the recovery audit: the recruiter-side gate has always
+  // checked suppression first; the company-side gate had no equivalent,
+  // so a suppressed company's contact channel could still read
+  // OUTREACH_READY. Optional so any caller not yet passing it defaults to
+  // "not suppressed" rather than breaking.
+  suppressed?: boolean;
 }
 
 export interface CompanyReadinessResult {
@@ -16,6 +22,9 @@ export interface CompanyReadinessResult {
 }
 
 export function evaluateCompanyReadiness(input: CompanyReadinessInput): CompanyReadinessResult {
+  if (input.suppressed) {
+    return { ready: false, reason: 'Company is on the suppression list' };
+  }
   if (!input.hasWebsite || !input.hasType) {
     return { ready: false, reason: 'Company not independently verified (missing website or type)' };
   }

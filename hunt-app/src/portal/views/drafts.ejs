@@ -1,0 +1,41 @@
+<%- include('partials/header', { title: 'Drafts' }) %>
+
+<h1>Outreach drafts</h1>
+<p class="muted">docs/09: DRAFT &rarr; VALIDATED &rarr; AWAITING_APPROVAL &rarr; APPROVED &rarr; SENT. This was previously a dead end — VALIDATED drafts had no way to move to the approval queue through the portal.</p>
+
+<% drafts.forEach(function(draft) { %>
+  <div class="approval-card">
+    <div class="approval-header">
+      <strong><%= draft.subject %></strong>
+      <span class="muted">to <%= draft.recipientEmail %> (<%= draft.greetingMode %>)</span>
+      <span class="badge badge-<%= draft.status === 'VALIDATED' ? 'active' : 'pending' %>"><%= draft.status %></span>
+    </div>
+    <pre class="draft-body"><%= draft.body %></pre>
+    <div class="evidence-used">
+      <strong>Validation checks:</strong>
+      <% if (draft.validations.length === 0) { %>
+        <span class="muted">none run yet</span>
+      <% } else { %>
+        <ul>
+          <% draft.validations.forEach(function(v) { %>
+            <li><%= v.checkName %> — <span class="badge badge-<%= v.result === 'PASS' ? 'active' : 'pending' %>"><%= v.result %></span></li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </div>
+    <% if (draft.status === 'VALIDATED') { %>
+      <div class="approval-actions">
+        <form method="post" action="/portal/drafts/<%= draft.id %>/submit" class="inline-form">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="btn-approve">Submit for approval</button>
+        </form>
+      </div>
+    <% } %>
+  </div>
+<% }) %>
+
+<% if (drafts.length === 0) { %>
+  <p class="muted">No drafts on file.</p>
+<% } %>
+
+<%- include('partials/footer') %>

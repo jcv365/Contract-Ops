@@ -1,0 +1,46 @@
+<%- include('partials/header', { title: 'Suppressions' }) %>
+
+<h1>Suppressions</h1>
+<p class="muted">docs/28: the do-not-contact hard gate. A suppressed address or domain is refused at draft-submission, approval-gate and send time (defence in depth), regardless of any other status.</p>
+
+<table>
+  <thead><tr><th>Email</th><th>Domain</th><th>Reason</th><th>Notes</th><th>Added</th><th></th></tr></thead>
+  <tbody>
+    <% suppressions.forEach(function(s) { %>
+      <tr>
+        <td><%= s.email %></td>
+        <td class="muted"><%= s.domain || '' %></td>
+        <td><span class="badge badge-pending"><%= s.reason %></span></td>
+        <td class="muted"><%= s.notes || '' %></td>
+        <td class="muted"><%= s.createdAt.toISOString().slice(0, 10) %></td>
+        <td>
+          <form method="post" action="/portal/suppressions/<%= s.id %>/delete" class="inline-form">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button type="submit">Remove</button>
+          </form>
+        </td>
+      </tr>
+    <% }) %>
+    <% if (suppressions.length === 0) { %>
+      <tr><td colspan="6" class="muted">Nothing suppressed.</td></tr>
+    <% } %>
+  </tbody>
+</table>
+
+<h2>Add a suppression</h2>
+<form method="post" action="/portal/suppressions">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <div class="grid-2">
+    <label>Email <input type="email" name="email" required></label>
+    <label>
+      Reason
+      <select name="reason">
+        <% reasons.forEach(function(r) { %><option value="<%= r %>"><%= r %></option><% }) %>
+      </select>
+    </label>
+  </div>
+  <label>Notes <textarea name="notes" rows="2"></textarea></label>
+  <button type="submit">Add suppression</button>
+</form>
+
+<%- include('partials/footer') %>

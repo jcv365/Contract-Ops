@@ -1,6 +1,7 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { companyIntelligenceService } from '../../modules/company-intelligence/service';
+import { discoverCompanyEmails, CompanyNotFoundError } from '../../modules/email-intelligence/service';
 import { CompanyType, EmailType } from '../../domain/types';
 
 export const companiesRouter = Router();
@@ -100,4 +101,24 @@ companiesRouter.post('/:id/verify-email', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// POST /companies/:id/discover-emails — Sprint E: org-website discovery.
+// Gated on ENABLE_WEB_DISCOVERY inside the provider itself (returns
+// UNAVAILABLE, not an error, when the flag is off).
+companiesRouter.post('/:id/discover-emails', async (req, res, next) => {
+  try {
+    const result = await discoverCompanyEmails(req.params.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+companiesRouter.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
+  if (err instanceof CompanyNotFoundError) {
+    res.status(404).json({ error: err.message });
+    return;
+  }
+  next(err);
 });

@@ -1,4 +1,4 @@
-import { ReplyClassification, SourceType, AdapterStatus, Actionability, OpportunityStatus } from '@prisma/client';
+import { ReplyClassification, SourceType, AdapterStatus, Actionability, OpportunityStatus, SuppressionReason } from '@prisma/client';
 import { prisma } from '../../db/client';
 import { logger } from '../../config/logger';
 import { env } from '../../config/env';
@@ -9,8 +9,28 @@ import { loadPrompt, ensurePromptTemplateRecorded } from '../ai/prompt-loader';
 import { classificationOutputSchema, extractionOutputSchema } from './schemas';
 import { isPromotableClassification } from './promotion';
 import { mapExtractionToOpportunityFields } from './mapping';
+import { suppressionService } from '../suppression/service';
 
 export class ReplyIntelligenceError extends Error {}
+
+// EmailThread.participants is stored as free-form Json (its shape depends
+// on what the ingesting caller sent — see ingestReply's participants
+// field) so extraction here is deliberately conservative: only a plain
+// string containing '@' or an object with a string `email` property counts
+// — never a guess at structure, and never anything AI-derived (docs/24:
+// deterministic code controls suppression, not a model).
+function extractParticipantEmails(participants: unknown): string[] {
+  if (!Array.isArray(participants)) return [];
+  const emails: string[] = [];
+  for (const p of participants) {
+    if (typeof p === 'string' && p.includes('@')) {
+      emails.push(p);
+    } else if (p && typeof p === 'object' && 'email' in p && typeof (p as { email: unknown }).email === 'string') {
+      emails.push((p as { email: string }).email);
+    }
+  }
+  return emails;
+}
 
 function assertReplyIngestionEnabled(): void {
   if (!env.ENABLE_REPLY_INGESTION) {
@@ -97,6 +117,24 @@ export async function classifyReply(replyId: string, bodyText: string, transport
       metadata: { classification: output.classification, confidence: output.confidence, promptVersion: prompt.version },
     },
   });
+
+  // Gap fix: ReplyClassification.DO_NOT_CONTACT previously flipped the
+  // Reply row's own classification and nothing else — the sender could
+  // still receive further outreach, because nothing turned the
+  // classification into an enforced Suppression row (docs/28's "suppression
+  // list" control). Every participant email extracted from the thread is
+  // suppressed; if none can be extracted, this is logged rather than
+  // silently doing nothing, since there is no address to guess from.
+  if (output.classification === ReplyClassification.DO_NOT_CONTACT) {
+    const thread = await prisma.emailThread.findUnique({ where: { id: updated.threadId } });
+    const emails = extractParticipantEmails(thread?.participants);
+    if (emails.length === 0) {
+      logger.warn({ replyId, threadId: updated.threadId }, 'Reply classified DO_NOT_CONTACT but no participant email could be extracted from the thread — nothing suppressed');
+    }
+    for (const email of emails) {
+      await suppressionService.create({ email, reason: SuppressionReason.DO_NOT_CONTACT, notes: `Classified from reply ${replyId}` });
+    }
+  }
 
   return updated;
 }

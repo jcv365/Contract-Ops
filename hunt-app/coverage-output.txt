@@ -1,0 +1,126 @@
+﻿
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mC:/Users/DotCloud-Docker/OneDrive - DotCloud Consulting/Code/Contract ops/hunt-app[39m
+      [2mCoverage enabled with [22m[33mv8[39m
+
+ [32mΓ£ô[39m src/modules/email-intelligence/chain.test.ts [2m([22m[2m10 tests[22m[2m)[22m[90m 28[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/recruiter-intelligence/readiness.test.ts [2m([22m[2m14 tests[22m[2m)[22m[90m 23[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/email-intelligence/classification.test.ts [2m([22m[2m9 tests[22m[2m)[22m[90m 16[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/web-fetch/robots.test.ts [2m([22m[2m14 tests[22m[2m)[22m[90m 28[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/email-intelligence/verification-decision.test.ts [2m([22m[2m14 tests[22m[2m)[22m[90m 16[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/dedup/identity.test.ts [2m([22m[2m13 tests[22m[2m)[22m[90m 28[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/graph/attachment-validation.test.ts [2m([22m[2m15 tests[22m[2m)[22m[90m 24[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/email-intelligence/domain.test.ts [2m([22m[2m14 tests[22m[2m)[22m[90m 20[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/outreach-state/machine.test.ts [2m([22m[2m16 tests[22m[2m)[22m[90m 26[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/reply-intelligence/mapping.test.ts [2m([22m[2m6 tests[22m[2m)[22m[90m 18[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/outreach-state/gate.test.ts [2m([22m[2m7 tests[22m[2m)[22m[90m 34[2mms[22m[39m
+node.exe : [90mstderr[2m | src/modules/scoring/service.test.ts
+At C:\Program Files\nodejs\npx.ps1:29 char:3
++   & $NODE_EXE $NPX_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([90mstderr[2m...service.test.ts 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[22m[39mInvalid environment configuration: { DATABASE_URL: [ 
+[32m'Required'[39m ] }
+
+[90mstderr[2m | src/modules/eligibility/service.test.ts
+[22m[39mInvalid environment configuration: { DATABASE_URL: [ 
+[32m'Required'[39m ] }
+
+ [31mΓ¥»[39m src/modules/scoring/service.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [31mΓ¥»[39m src/modules/eligibility/service.test.ts [2m([22m[2m0 test[22m[2m)[22m
+(node:19968) MaxListenersExceededWarning: Possible EventEmitter memory leak 
+detected. 11 exit listeners added to [process]. MaxListeners is 10. Use 
+emitter.setMaxListeners() to increase limit
+(Use `node --trace-warnings ...` to show where the warning was created)
+ [32mΓ£ô[39m src/config/preflight.test.ts [2m([22m[2m11 tests[22m[2m)[22m[33m 1389[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m runStartupPreflight[2m > [22mpasses with Graph send disabled and no Azure/Graph config at all [33m923[2mms[22m[39m
+[90mstderr[2m | 
+src/modules/email-intelligence/providers/org-website-discovery.test.ts
+[22m[39mInvalid environment configuration: { DATABASE_URL: [ 
+[32m'Required'[39m ] }
+
+ [31mΓ¥»[39m src/modules/email-intelligence/providers/org-website-discovery.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [32mΓ£ô[39m src/modules/contact-scoring/company-target.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 18[2mms[22m[39m
+ [32mΓ£ô[39m src/portal/csrf.test.ts [2m([22m[2m7 tests[22m[2m)[22m[90m 36[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/commercial-intelligence/benchmarking.test.ts [2m([22m[2m8 tests[22m[2m)[22m[90m 20[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/contact-scoring/contact-quality.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 22[2mms[22m[39m
+ [32mΓ£ô[39m src/api/middleware/tenant.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 16[2mms[22m[39m
+[90mstderr[2m | src/config/logger.test.ts
+[22m[39mInvalid environment configuration: { DATABASE_URL: [ 
+[32m'Required'[39m ] }
+
+ [31mΓ¥»[39m src/config/logger.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [32mΓ£ô[39m src/modules/commercial-intelligence/relationship-score.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 14[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/contact-scoring/recruiter-target.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 22[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/company-intelligence/readiness.test.ts [2m([22m[2m7 tests[22m[2m)[22m[90m 16[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/company-intelligence/scoring.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 12[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/email-intelligence/local-part.test.ts [2m([22m[2m6 tests[22m[2m)[22m[90m 16[2mms[22m[39m
+ [32mΓ£ô[39m src/api/middleware/api-key.test.ts [2m([22m[2m4 tests[22m[2m)[22m[33m 387[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m requireApiKey[2m > [22mrejects a request with no key when API_KEY is configured [33m300[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/contact-scoring/role-taxonomy.test.ts [2m([22m[2m6 tests[22m[2m)[22m[90m 21[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/bidops/evidence-check.test.ts [2m([22m[2m6 tests[22m[2m)[22m[90m 17[2mms[22m[39m
+ [32mΓ£ô[39m src/portal/auth.test.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 555[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m checkPortalPassword[2m > [22maccepts the configured password [33m445[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/contact-scoring/types.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 23[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/normalisation/conflict.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 13[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/ai/structured-output.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 25[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/ai/untrusted-content.test.ts [2m([22m[2m2 tests[22m[2m)[22m[90m 11[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/company-discovery/query-builder.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 15[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/bidops/word-count.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 15[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/graph/token-crypto.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 24[2mms[22m[39m
+ [32mΓ£ô[39m src/modules/graph/idempotency.test.ts [2m([22m[2m5 tests[22m[2m)[22m[90m 16[2mms[22m[39m
+ [32mΓ£ô[39m src/shared/constant-time.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 12[2mms[22m[39m
+[90mstderr[2m | src/modules/ai/prompt-loader.test.ts
+[22m[39mInvalid environment configuration: { DATABASE_URL: [ 
+[32m'Required'[39m ] }
+
+ [32mΓ£ô[39m src/modules/coverage/service.test.ts [2m([22m[2m4 tests[22m[2m)[22m[90m 13[2mms[22m[39m
+ [31mΓ¥»[39m src/modules/ai/prompt-loader.test.ts [2m([22m[2m0 test[22m[2m)[22m
+[90mstderr[2m | src/modules/normalisation/service.test.ts
+[22m[39mInvalid environment configuration: { DATABASE_URL: [ 
+[32m'Required'[39m ] }
+
+ [31mΓ¥»[39m src/modules/normalisation/service.test.ts [2m([22m[2m0 test[22m[2m)[22m
+ [32mΓ£ô[39m src/modules/reply-intelligence/promotion.test.ts [2m([22m[2m12 tests[22m[2m)[22m[90m 21[2mms[22m[39m
+
+[31mΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1m[7m Failed Suites 6 
+[27m[22mΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[39m
+
+[31m[1m[7m FAIL [27m[22m[39m src/config/logger.test.ts[2m [ 
+src/config/logger.test.ts ][22m
+[31m[1m[7m FAIL [27m[22m[39m src/modules/ai/prompt-loader.test.ts[2m [ 
+src/modules/ai/prompt-loader.test.ts ][22m
+[31m[1m[7m FAIL [27m[22m[39m src/modules/eligibility/service.test.ts[2m 
+[ src/modules/eligibility/service.test.ts ][22m
+[31m[1m[7m FAIL [27m[22m[39m 
+src/modules/normalisation/service.test.ts[2m [ 
+src/modules/normalisation/service.test.ts ][22m
+[31m[1m[7m FAIL [27m[22m[39m src/modules/scoring/service.test.ts[2m [ 
+src/modules/scoring/service.test.ts ][22m
+[31m[1m[7m FAIL [27m[22m[39m 
+src/modules/email-intelligence/providers/org-website-discovery.test.ts[2m [ 
+src/modules/email-intelligence/providers/org-website-discovery.test.ts ][22m
+[31m[1mError[22m: Invalid environment configuration[39m
+[36m [2mΓ¥»[22m getEnv src/config/env.ts:[2m126:11[22m[39m
+    [90m124| [39m  [35mif[39m ([33m![39mresult[33m.[39msuccess) {
+    [90m125| [39m    console[33m.[39m[34merror[39m([32m'Invalid 
+environment configuration:'[39m[33m,[39m 
+result[33m.[39merror[33m.[39m[34mf[39mΓÇª
+    [90m126| [39m    [35mthrow[39m [35mnew[39m 
+[33mError[39m([32m'Invalid environment configuration'[39m)[33m;[39m
+    [90m   | [39m          [31m^[39m
+    [90m127| [39m  }
+    [90m128| [39m
+[90m [2mΓ¥»[22m src/config/env.ts:[2m133:20[22m[39m
+[90m [2mΓ¥»[22m src/config/logger.ts:[2m2:31[22m[39m
+
+[31m[2mΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»Γ
+Ä»[1/6]ΓÄ»[22m[39m
+
+[2m Test Files [22m [1m[31m6 failed[39m[22m[2m | [22m[1m[32m37 passed[39m[22m[90m (43)[39m
+[2m      Tests [22m [1m[32m269 passed[39m[22m[90m (269)[39m
+[2m   Start at [22m 22:01:30
+[2m   Duration [22m 11.48s[2m (transform 10.42s, setup 0ms, collect 13.10s, tests 3.01s, environment 45ms, prepare 40.12s)[22m
+

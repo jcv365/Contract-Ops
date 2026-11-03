@@ -50,6 +50,15 @@ services:
       - ENABLE_BIDOPS=true
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - LOG_PRETTY=false
+      - ENABLE_SEARCH_DISCOVERY=${ENABLE_SEARCH_DISCOVERY:-false}
+      - BRAVE_SEARCH_API_KEY=${BRAVE_SEARCH_API_KEY:-}
+    volumes:
+      # Attachment uploads (CV, capability statement) must survive a
+      # `docker compose up -d --build` recreate — without a named volume
+      # here, every redeploy silently deletes every uploaded file, which
+      # is exactly the kind of data loss this system's whole design tries
+      # to prevent (see modules/attachments/service.ts).
+      - hunt_attachments:/app/storage/attachments
     depends_on:
       postgres:
         condition: service_healthy
@@ -101,6 +110,7 @@ services:
 volumes:
   hunt_postgres_data:
   hunt_redis_data:
+  hunt_attachments:
 
 networks:
   hunt-network:

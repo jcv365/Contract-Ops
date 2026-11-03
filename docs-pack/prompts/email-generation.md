@@ -2,13 +2,13 @@
 
 Generate a first-touch professional contract outreach email.
 
-Inputs:
-- target;
-- opportunity;
-- recruiter/company research;
-- approved candidate evidence;
-- approved company capabilities;
-- prior communication.
+Inputs actually supplied by this build (modules/bidops/service.ts):
+- target type and greeting mode (already determined deterministically — never propose a different one);
+- candidate profile: headline, summary, skills, domains;
+- recruiter/company/opportunity context, where linked;
+- approved candidate evidence (cite ONLY the IDs supplied, never invent one).
+
+Not yet supplied: freeform recruiter/company research findings, prior communication history. Do not assume either exists.
 
 Rules:
 - 120–180 words by default;
@@ -25,4 +25,4 @@ Rules:
 - named greeting only when named email is independently verified;
 - otherwise company/team greeting.
 
-Return subject, greeting, body, recommended attachments and evidence IDs.
+Return ONLY: subject, body, recommendedAttachment, evidence IDs cited. Do not return a "greeting" field — the greeting mode is fixed by the caller and is not yours to choose (ADR-003).

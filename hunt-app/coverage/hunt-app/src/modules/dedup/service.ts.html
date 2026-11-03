@@ -1,0 +1,460 @@
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <title>Code coverage report for hunt-app/src/modules/dedup/service.ts</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../../../../prettify.css" />
+    <link rel="stylesheet" href="../../../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../../../favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../../../../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+    
+<body>
+<div class='wrapper'>
+    <div class='pad1'>
+        <h1><a href="../../../../index.html">All files</a> / <a href="index.html">hunt-app/src/modules/dedup</a> service.ts</h1>
+        <div class='clearfix'>
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">1.19% </span>
+                <span class="quiet">Statements</span>
+                <span class='fraction'>1/84</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">100% </span>
+                <span class="quiet">Branches</span>
+                <span class='fraction'>0/0</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">0% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>0/4</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">1.19% </span>
+                <span class="quiet">Lines</span>
+                <span class='fraction'>1/84</span>
+            </div>
+        
+            
+        </div>
+        <p class="quiet">
+            Press <em>n</em> or <em>j</em> to go to the next uncovered block, <em>b</em>, <em>p</em> or <em>k</em> for the previous block.
+        </p>
+        <template id="filterTemplate">
+            <div class="quiet">
+                Filter:
+                <input type="search" id="fileSearch">
+            </div>
+        </template>
+    </div>
+    <div class='status-line low'></div>
+    <pre><table class="coverage">
+<tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
+<a name='L2'></a><a href='#L2'>2</a>
+<a name='L3'></a><a href='#L3'>3</a>
+<a name='L4'></a><a href='#L4'>4</a>
+<a name='L5'></a><a href='#L5'>5</a>
+<a name='L6'></a><a href='#L6'>6</a>
+<a name='L7'></a><a href='#L7'>7</a>
+<a name='L8'></a><a href='#L8'>8</a>
+<a name='L9'></a><a href='#L9'>9</a>
+<a name='L10'></a><a href='#L10'>10</a>
+<a name='L11'></a><a href='#L11'>11</a>
+<a name='L12'></a><a href='#L12'>12</a>
+<a name='L13'></a><a href='#L13'>13</a>
+<a name='L14'></a><a href='#L14'>14</a>
+<a name='L15'></a><a href='#L15'>15</a>
+<a name='L16'></a><a href='#L16'>16</a>
+<a name='L17'></a><a href='#L17'>17</a>
+<a name='L18'></a><a href='#L18'>18</a>
+<a name='L19'></a><a href='#L19'>19</a>
+<a name='L20'></a><a href='#L20'>20</a>
+<a name='L21'></a><a href='#L21'>21</a>
+<a name='L22'></a><a href='#L22'>22</a>
+<a name='L23'></a><a href='#L23'>23</a>
+<a name='L24'></a><a href='#L24'>24</a>
+<a name='L25'></a><a href='#L25'>25</a>
+<a name='L26'></a><a href='#L26'>26</a>
+<a name='L27'></a><a href='#L27'>27</a>
+<a name='L28'></a><a href='#L28'>28</a>
+<a name='L29'></a><a href='#L29'>29</a>
+<a name='L30'></a><a href='#L30'>30</a>
+<a name='L31'></a><a href='#L31'>31</a>
+<a name='L32'></a><a href='#L32'>32</a>
+<a name='L33'></a><a href='#L33'>33</a>
+<a name='L34'></a><a href='#L34'>34</a>
+<a name='L35'></a><a href='#L35'>35</a>
+<a name='L36'></a><a href='#L36'>36</a>
+<a name='L37'></a><a href='#L37'>37</a>
+<a name='L38'></a><a href='#L38'>38</a>
+<a name='L39'></a><a href='#L39'>39</a>
+<a name='L40'></a><a href='#L40'>40</a>
+<a name='L41'></a><a href='#L41'>41</a>
+<a name='L42'></a><a href='#L42'>42</a>
+<a name='L43'></a><a href='#L43'>43</a>
+<a name='L44'></a><a href='#L44'>44</a>
+<a name='L45'></a><a href='#L45'>45</a>
+<a name='L46'></a><a href='#L46'>46</a>
+<a name='L47'></a><a href='#L47'>47</a>
+<a name='L48'></a><a href='#L48'>48</a>
+<a name='L49'></a><a href='#L49'>49</a>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a>
+<a name='L58'></a><a href='#L58'>58</a>
+<a name='L59'></a><a href='#L59'>59</a>
+<a name='L60'></a><a href='#L60'>60</a>
+<a name='L61'></a><a href='#L61'>61</a>
+<a name='L62'></a><a href='#L62'>62</a>
+<a name='L63'></a><a href='#L63'>63</a>
+<a name='L64'></a><a href='#L64'>64</a>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a>
+<a name='L69'></a><a href='#L69'>69</a>
+<a name='L70'></a><a href='#L70'>70</a>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a>
+<a name='L86'></a><a href='#L86'>86</a>
+<a name='L87'></a><a href='#L87'>87</a>
+<a name='L88'></a><a href='#L88'>88</a>
+<a name='L89'></a><a href='#L89'>89</a>
+<a name='L90'></a><a href='#L90'>90</a>
+<a name='L91'></a><a href='#L91'>91</a>
+<a name='L92'></a><a href='#L92'>92</a>
+<a name='L93'></a><a href='#L93'>93</a>
+<a name='L94'></a><a href='#L94'>94</a>
+<a name='L95'></a><a href='#L95'>95</a>
+<a name='L96'></a><a href='#L96'>96</a>
+<a name='L97'></a><a href='#L97'>97</a>
+<a name='L98'></a><a href='#L98'>98</a>
+<a name='L99'></a><a href='#L99'>99</a>
+<a name='L100'></a><a href='#L100'>100</a>
+<a name='L101'></a><a href='#L101'>101</a>
+<a name='L102'></a><a href='#L102'>102</a>
+<a name='L103'></a><a href='#L103'>103</a>
+<a name='L104'></a><a href='#L104'>104</a>
+<a name='L105'></a><a href='#L105'>105</a>
+<a name='L106'></a><a href='#L106'>106</a>
+<a name='L107'></a><a href='#L107'>107</a>
+<a name='L108'></a><a href='#L108'>108</a>
+<a name='L109'></a><a href='#L109'>109</a>
+<a name='L110'></a><a href='#L110'>110</a>
+<a name='L111'></a><a href='#L111'>111</a>
+<a name='L112'></a><a href='#L112'>112</a>
+<a name='L113'></a><a href='#L113'>113</a>
+<a name='L114'></a><a href='#L114'>114</a>
+<a name='L115'></a><a href='#L115'>115</a>
+<a name='L116'></a><a href='#L116'>116</a>
+<a name='L117'></a><a href='#L117'>117</a>
+<a name='L118'></a><a href='#L118'>118</a>
+<a name='L119'></a><a href='#L119'>119</a>
+<a name='L120'></a><a href='#L120'>120</a>
+<a name='L121'></a><a href='#L121'>121</a>
+<a name='L122'></a><a href='#L122'>122</a>
+<a name='L123'></a><a href='#L123'>123</a>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a></td><td class="line-coverage quiet"><span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { Prisma, ConflictStatus } from '@prisma/client';
+import { prisma } from '../../db/client';
+import { logger } from '../../config/logger';
+import { planMerge, ExistingRecord, IncomingRecord, ConflictEntry } from './identity';
+import { registrableDomain } from '../email-intelligence/domain';
+&nbsp;
+// §90: "Do not create another recruiter record simply because the source
+// differs. Merge evidence while retaining all source references." This is
+// the Prisma-touching orchestration behind identity.ts's pure planMerge —
+// used both by normalisation (wiring RawOpportunity.companyName/
+// recruiterName into real Company/Recruiter rows for the first time) and
+// by anything else that discovers a company/recruiter from a new source.
+&nbsp;
+<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >async function recordClaimConflict(entityType: string, entityId: string, conflict: ConflictEntry): Promise&lt;void&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >  const existingConflict = await prisma.claimConflict.findFirst({</span>
+<span class="cstat-no" title="statement not covered" >    where: { entityType, entityId, field: conflict.field, status: ConflictStatus.OPEN },</span>
+<span class="cstat-no" title="statement not covered" >  });</span>
+<span class="cstat-no" title="statement not covered" >  const incomingValue = { value: conflict.incoming, source: conflict.incomingSource, retrievedAt: new Date().toISOString() };</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  if (existingConflict) {</span>
+<span class="cstat-no" title="statement not covered" >    const values = existingConflict.values as unknown as Array&lt;{ value: unknown }&gt;;</span>
+<span class="cstat-no" title="statement not covered" >    const alreadyRecorded = values.some((v) =&gt; JSON.stringify(v.value) === JSON.stringify(conflict.incoming));</span>
+<span class="cstat-no" title="statement not covered" >    if (!alreadyRecorded) {</span>
+<span class="cstat-no" title="statement not covered" >      await prisma.claimConflict.update({ where: { id: existingConflict.id }, data: { values: [...values, incomingValue] as unknown as Prisma.InputJsonValue } });</span>
+<span class="cstat-no" title="statement not covered" >    }</span>
+<span class="cstat-no" title="statement not covered" >    return;</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  const existingValue = { value: conflict.existing, source: conflict.existingSource, retrievedAt: new Date().toISOString() };</span>
+<span class="cstat-no" title="statement not covered" >  await prisma.claimConflict.create({</span>
+<span class="cstat-no" title="statement not covered" >    data: { entityType, entityId, field: conflict.field, values: [existingValue, incomingValue] as unknown as Prisma.InputJsonValue, status: ConflictStatus.OPEN },</span>
+<span class="cstat-no" title="statement not covered" >  });</span>
+<span class="cstat-no" title="statement not covered" >  logger.warn({ entityType, entityId, field: conflict.field }, 'Claim conflict recorded during dedup merge');</span>
+<span class="cstat-no" title="statement not covered" >}</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >async function findExistingCompanyByWebsite(website: string) {</span></span>
+<span class="cstat-no" title="statement not covered" >  let host: string;</span>
+<span class="cstat-no" title="statement not covered" >  try {</span>
+<span class="cstat-no" title="statement not covered" >    host = new URL(website.startsWith('http') ? website : `https://${website}`).hostname;</span>
+<span class="cstat-no" title="statement not covered" >  } catch {</span>
+<span class="cstat-no" title="statement not covered" >    return null;</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+<span class="cstat-no" title="statement not covered" >  const domain = registrableDomain(host);</span>
+<span class="cstat-no" title="statement not covered" >  const candidates = await prisma.company.findMany({ where: { website: { not: null } }, select: { id: true, name: true, website: true } });</span>
+<span class="cstat-no" title="statement not covered" >  return (</span>
+<span class="cstat-no" title="statement not covered" >    candidates.find((c) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      if (!c.website) return false;</span>
+<span class="cstat-no" title="statement not covered" >      try {</span>
+<span class="cstat-no" title="statement not covered" >        return registrableDomain(new URL(c.website.startsWith('http') ? c.website : `https://${c.website}`).hostname) === domain;</span>
+<span class="cstat-no" title="statement not covered" >      } catch {</span>
+<span class="cstat-no" title="statement not covered" >        return false;</span>
+<span class="cstat-no" title="statement not covered" >      }</span>
+<span class="cstat-no" title="statement not covered" >    }) ?? null</span>
+  );
+<span class="cstat-no" title="statement not covered" >}</span>
+&nbsp;
+export interface LinkCompanyInput {
+  companyName: string;
+  companyWebsite?: string;
+  source: string;
+}
+&nbsp;
+// Strong match on registrable domain when a website is present (§90's
+// strongest identity signal); falls back to a case-insensitive exact name
+// match. A differing website on an exact-name match becomes a conflict,
+// never a silent overwrite.
+<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >export async function findOrCreateCompany(input: LinkCompanyInput): Promise&lt;string&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >  const existing =</span>
+<span class="cstat-no" title="statement not covered" >    (input.companyWebsite ? await findExistingCompanyByWebsite(input.companyWebsite) : null) ??</span>
+<span class="cstat-no" title="statement not covered" >    (await prisma.company.findFirst({ where: { name: { equals: input.companyName, mode: 'insensitive' } }, select: { id: true, name: true, website: true } }));</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  const existingRecord: ExistingRecord | null = existing ? { id: existing.id, fields: { name: existing.name, website: existing.website }, source: 'existing-record' } : null;</span>
+<span class="cstat-no" title="statement not covered" >  const incoming: IncomingRecord = { fields: { name: input.companyName, website: input.companyWebsite }, source: input.source };</span>
+<span class="cstat-no" title="statement not covered" >  const plan = planMerge(existingRecord, incoming);</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  if (plan.action === 'CREATE') {</span>
+<span class="cstat-no" title="statement not covered" >    const created = await prisma.company.create({</span>
+<span class="cstat-no" title="statement not covered" >      data: { name: input.companyName, website: input.companyWebsite, provenance: { source: input.source, discoveredAt: new Date().toISOString() } },</span>
+<span class="cstat-no" title="statement not covered" >    });</span>
+<span class="cstat-no" title="statement not covered" >    logger.info({ companyId: created.id, source: input.source }, 'Company created via dedup');</span>
+<span class="cstat-no" title="statement not covered" >    return created.id;</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  for (const conflict of plan.conflicts) await recordClaimConflict('Company', plan.targetId!, conflict);</span>
+<span class="cstat-no" title="statement not covered" >  if (Object.keys(plan.fieldUpdates).length &gt; 0) {</span>
+<span class="cstat-no" title="statement not covered" >    await prisma.company.update({ where: { id: plan.targetId! }, data: plan.fieldUpdates as Prisma.CompanyUpdateInput });</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+<span class="cstat-no" title="statement not covered" >  return plan.targetId!;</span>
+<span class="cstat-no" title="statement not covered" >}</span>
+&nbsp;
+export interface LinkRecruiterInput {
+  recruiterName: string;
+  recruiterProfileUrl?: string;
+  companyId?: string;
+  source: string;
+}
+&nbsp;
+<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >export async function findOrCreateRecruiter(input: LinkRecruiterInput): Promise&lt;string&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >  const existing =</span>
+<span class="cstat-no" title="statement not covered" >    (input.recruiterProfileUrl</span>
+<span class="cstat-no" title="statement not covered" >      ? await prisma.recruiter.findFirst({ where: { publicProfileUrl: input.recruiterProfileUrl }, select: { id: true, name: true, publicProfileUrl: true, companyId: true } })</span>
+<span class="cstat-no" title="statement not covered" >      : null) ??</span>
+<span class="cstat-no" title="statement not covered" >    (await prisma.recruiter.findFirst({</span>
+<span class="cstat-no" title="statement not covered" >      where: { name: { equals: input.recruiterName, mode: 'insensitive' }, companyId: input.companyId ?? undefined },</span>
+<span class="cstat-no" title="statement not covered" >      select: { id: true, name: true, publicProfileUrl: true, companyId: true },</span>
+<span class="cstat-no" title="statement not covered" >    }));</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  const existingRecord: ExistingRecord | null = existing</span>
+<span class="cstat-no" title="statement not covered" >    ? { id: existing.id, fields: { name: existing.name, publicProfileUrl: existing.publicProfileUrl, companyId: existing.companyId }, source: 'existing-record' }</span>
+<span class="cstat-no" title="statement not covered" >    : null;</span>
+<span class="cstat-no" title="statement not covered" >  const incoming: IncomingRecord = { fields: { name: input.recruiterName, publicProfileUrl: input.recruiterProfileUrl, companyId: input.companyId }, source: input.source };</span>
+<span class="cstat-no" title="statement not covered" >  const plan = planMerge(existingRecord, incoming);</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  if (plan.action === 'CREATE') {</span>
+<span class="cstat-no" title="statement not covered" >    const created = await prisma.recruiter.create({ data: { name: input.recruiterName, publicProfileUrl: input.recruiterProfileUrl, companyId: input.companyId } });</span>
+<span class="cstat-no" title="statement not covered" >    logger.info({ recruiterId: created.id, source: input.source }, 'Recruiter created via dedup');</span>
+<span class="cstat-no" title="statement not covered" >    return created.id;</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  for (const conflict of plan.conflicts) await recordClaimConflict('Recruiter', plan.targetId!, conflict);</span>
+<span class="cstat-no" title="statement not covered" >  if (Object.keys(plan.fieldUpdates).length &gt; 0) {</span>
+<span class="cstat-no" title="statement not covered" >    await prisma.recruiter.update({ where: { id: plan.targetId! }, data: plan.fieldUpdates as Prisma.RecruiterUpdateInput });</span>
+<span class="cstat-no" title="statement not covered" >  }</span>
+<span class="cstat-no" title="statement not covered" >  return plan.targetId!;</span>
+<span class="cstat-no" title="statement not covered" >}</span>
+&nbsp;</pre></td></tr></table></pre>
+
+                <div class='push'></div><!-- for sticky footer -->
+            </div><!-- /wrapper -->
+            <div class='footer quiet pad2 space-top1 center small'>
+                Code coverage generated by
+                <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
+                at 2026-09-02T20:14:07.607Z
+            </div>
+        <script src="../../../../prettify.js"></script>
+        <script>
+            window.onload = function () {
+                prettyPrint();
+            };
+        </script>
+        <script src="../../../../sorter.js"></script>
+        <script src="../../../../block-navigation.js"></script>
+    </body>
+</html>
+    

@@ -1,4 +1,4 @@
-import { DraftStatus, EvidenceState as PrismaEvidenceState, ValidationCheckResult } from '@prisma/client';
+import { DraftStatus, EvidenceState as PrismaEvidenceState, ValidationCheckResult, AttachmentKind } from '@prisma/client';
 import { prisma } from '../../db/client';
 import { logger } from '../../config/logger';
 import { AiTransport, getAiTransport } from '../ai/transport';
@@ -9,6 +9,7 @@ import { researchFindingsSchema, draftOutputSchema, reviewOutputSchema, Research
 import { checkWordCount } from './word-count';
 import { findHallucinatedEvidenceIds, evaluateDuplicateContact } from './evidence-check';
 import { TargetType, GreetingMode } from '../../domain/types';
+import { latestAttachmentByKind } from '../attachments/service';
 
 export class BidopsError extends Error {}
 
@@ -66,13 +67,50 @@ export interface DraftInput {
   greetingMode: GreetingMode; // supplied by the caller from the readiness gate (modules/recruiter-intelligence / company-intelligence) — draft() does not re-derive it, to avoid two sources of truth
 }
 
+// Builds the "who am I writing to" context block. Audit finding (this
+// session): draftOutreach() previously never dereferenced recruiterId/
+// companyId/opportunityId at all — the model was drafting completely
+// blind to who it was actually writing to. Returns a plain string, not
+// structured data, since it only ever becomes prompt text.
+async function buildTargetContext(input: DraftInput): Promise<string> {
+  const lines: string[] = [];
+  if (input.recruiterId) {
+    const recruiter = await prisma.recruiter.findUnique({ where: { id: input.recruiterId }, include: { company: true } });
+    if (recruiter) {
+      lines.push(`Recruiter: ${recruiter.name}${recruiter.title ? `, ${recruiter.title}` : ''}${recruiter.company ? ` at ${recruiter.company.name}` : ''}.`);
+      if (recruiter.specialisms.length > 0) lines.push(`Recruiter specialisms: ${recruiter.specialisms.join(', ')}.`);
+    }
+  }
+  if (input.companyId) {
+    const company = await prisma.company.findUnique({ where: { id: input.companyId } });
+    if (company) {
+      lines.push(`Company: ${company.name}${company.type ? ` (${company.type})` : ''}.`);
+      if (company.specialisms.length > 0) lines.push(`Company specialisms: ${company.specialisms.join(', ')}.`);
+      const provenance = company.provenance as { targetingReason?: string; proposition?: string } | null;
+      if (provenance?.targetingReason) lines.push(`Why this is a target: ${provenance.targetingReason}.`);
+      if (provenance?.proposition) lines.push(`Proposition to lead with: ${provenance.proposition}.`);
+    }
+  }
+  if (input.opportunityId) {
+    const opportunity = await prisma.opportunity.findUnique({ where: { id: input.opportunityId } });
+    if (opportunity) {
+      lines.push(`Opportunity: "${opportunity.title}"${opportunity.location ? ` (${opportunity.location})` : ''}.`);
+    }
+  }
+  return lines.length > 0 ? lines.join('\n') : 'No further recruiter/company/opportunity context is on file.';
+}
+
 // Fails closed (throws BidopsError) rather than creating a draft with
 // hallucinated evidence: any evidenceId the model returns that wasn't in
 // the citable set actually supplied is treated as a fabricated citation.
 export async function draftOutreach(input: DraftInput, transport: AiTransport = getAiTransport()) {
-  const citableEvidence = await prisma.evidence.findMany({
-    where: { profileId: input.profileId, state: { in: [PrismaEvidenceState.VERIFIED, PrismaEvidenceState.SOURCE_REPORTED] } },
-  });
+  const [citableEvidence, profile, targetContext] = await Promise.all([
+    prisma.evidence.findMany({
+      where: { profileId: input.profileId, state: { in: [PrismaEvidenceState.VERIFIED, PrismaEvidenceState.SOURCE_REPORTED] } },
+    }),
+    prisma.profile.findUnique({ where: { id: input.profileId } }),
+    buildTargetContext(input),
+  ]);
 
   if (citableEvidence.length === 0) {
     throw new BidopsError(
@@ -83,9 +121,28 @@ export async function draftOutreach(input: DraftInput, transport: AiTransport = 
   const prompt = loadPrompt('email-generation');
   await ensurePromptTemplateRecorded(prompt);
 
+  // Audit finding: previously the ONLY thing sent to the model was the
+  // evidence list — no Profile (headline/summary/skills/domains), no
+  // recruiter/company/opportunity context. Four of the six inputs
+  // docs-pack/prompts/email-generation.md itself declares were never
+  // populated. This is what actually makes a draft "positioned" rather
+  // than a generic evidence quote.
+  const profileSummary = profile
+    ? [
+        profile.headline ? `Headline: ${profile.headline}.` : null,
+        profile.summary ? `Summary: ${profile.summary}.` : null,
+        profile.skills.length > 0 ? `Skills: ${profile.skills.join(', ')}.` : null,
+        profile.domains.length > 0 ? `Domains: ${profile.domains.join(', ')}.` : null,
+      ]
+        .filter(Boolean)
+        .join('\n')
+    : null;
+
   const evidenceList = citableEvidence.map((e) => `[${e.id}] ${e.claim} (source: ${e.source})`).join('\n');
   const userMessage = [
-    `Target type: ${input.targetType}. Greeting mode: ${input.greetingMode} (already determined — do not address by name unless FIRST_NAME).`,
+    `Target type: ${input.targetType}. Greeting mode: ${input.greetingMode} (already determined by deterministic code, per ADR-003 — do not address by name unless FIRST_NAME, and do not propose a different greeting).`,
+    `About the candidate:\n${profileSummary ?? 'No profile headline/summary/skills recorded yet.'}`,
+    `About the recipient:\n${targetContext}`,
     `Available evidence (cite ONLY these IDs, never invent a new one):\n${evidenceList}`,
     'Return ONLY JSON matching: {"subject":string,"body":string,"evidenceIds":string[],"recommendedAttachment":"CV"|"COMPANY_PROFILE"|"BOTH"|"NONE"}. Target 120-180 words for the body.',
   ].join('\n\n');
@@ -108,6 +165,24 @@ export async function draftOutreach(input: DraftInput, transport: AiTransport = 
     throw new AiValidationError(`Draft body word count (${wordCheck.count}) is outside the sane bound — refusing to create a draft from it`);
   }
 
+  // Audit finding: output.recommendedAttachment was parsed and then
+  // silently discarded — no DraftAttachment row was ever created from it.
+  // Resolves to the most recent real Attachment of the requested kind(s)
+  // for this profile's owner; a kind with nothing uploaded yet is simply
+  // omitted rather than failing the whole draft (docs/16: attachments are
+  // shown and can be adjusted before approval, not a hard blocker here).
+  const attachmentKinds: AttachmentKind[] =
+    output.recommendedAttachment === 'BOTH'
+      ? [AttachmentKind.CV, AttachmentKind.COMPANY_PROFILE]
+      : output.recommendedAttachment === 'NONE'
+        ? []
+        : [AttachmentKind[output.recommendedAttachment]];
+
+  const ownerId = profile?.userId ?? 'default-user';
+  const resolvedAttachments = (
+    await Promise.all(attachmentKinds.map((kind) => latestAttachmentByKind(ownerId, kind)))
+  ).filter((a): a is NonNullable<typeof a> => a != null);
+
   const draft = await prisma.outreachDraft.create({
     data: {
       targetType: input.targetType,
@@ -122,10 +197,18 @@ export async function draftOutreach(input: DraftInput, transport: AiTransport = 
       promptVersion: prompt.version,
       status: DraftStatus.DRAFT,
       draftEvidence: { create: output.evidenceIds.map((evidenceId) => ({ evidenceId })) },
+      draftAttachments: { create: resolvedAttachments.map((a) => ({ attachmentId: a.id })) },
     },
   });
 
-  logger.info({ draftId: draft.id, wordCount: wordCheck.count }, 'Outreach draft created');
+  if (attachmentKinds.length > 0 && resolvedAttachments.length < attachmentKinds.length) {
+    logger.warn(
+      { draftId: draft.id, recommended: output.recommendedAttachment, resolved: resolvedAttachments.map((a) => a.kind) },
+      'BIDOPS recommended an attachment kind with nothing uploaded yet for this profile — draft created without it'
+    );
+  }
+
+  logger.info({ draftId: draft.id, wordCount: wordCheck.count, attachmentCount: resolvedAttachments.length }, 'Outreach draft created');
   return draft;
 }
 

@@ -2,6 +2,8 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { prisma } from '../../db/client';
 import { ingestReply, classifyReply, promoteReplyToOpportunity, ReplyIntelligenceError } from '../../modules/reply-intelligence/service';
+import { AiTransportError } from '../../modules/ai/transport';
+import { AiValidationError } from '../../modules/ai/structured-output';
 
 export const repliesRouter = Router();
 
@@ -64,8 +66,13 @@ repliesRouter.post('/:id/promote-to-opportunity', async (req, res, next) => {
   }
 });
 
+// Gap fix: this router only mapped ReplyIntelligenceError, unlike
+// bidops.ts's equivalent handler — a missing FREELLMAPI_API_KEY on
+// /:id/classify or /:id/promote-to-opportunity fell through to the global
+// 500 handler instead of the semantically-correct 422 (deliberate business
+// rule failing, not a server bug).
 repliesRouter.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
-  if (err instanceof ReplyIntelligenceError) {
+  if (err instanceof ReplyIntelligenceError || err instanceof AiTransportError || err instanceof AiValidationError) {
     res.status(422).json({ error: err.message });
     return;
   }

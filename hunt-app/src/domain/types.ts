@@ -141,6 +141,34 @@ export enum CompanyReadiness {
   OUTREACH_READY = 'OUTREACH_READY',
 }
 
+// §85 — lifecycle of a contact, distinct from DraftStatus (message
+// lifecycle). SUPPRESSED is absorbing.
+export enum OutreachState {
+  DISCOVERED = 'DISCOVERED',
+  RESEARCHING = 'RESEARCHING',
+  CONTACT_IDENTIFIED = 'CONTACT_IDENTIFIED',
+  EMAIL_FOUND = 'EMAIL_FOUND',
+  EMAIL_VERIFIED = 'EMAIL_VERIFIED',
+  OUTREACH_READY = 'OUTREACH_READY',
+  DRAFTED = 'DRAFTED',
+  AWAITING_APPROVAL = 'AWAITING_APPROVAL',
+  CONTACTED = 'CONTACTED',
+  RESPONDED = 'RESPONDED',
+  FOLLOW_UP = 'FOLLOW_UP',
+  CONTACT_FORM_AVAILABLE = 'CONTACT_FORM_AVAILABLE',
+  NO_USABLE_CONTACT = 'NO_USABLE_CONTACT',
+  SUPPRESSED = 'SUPPRESSED',
+}
+
+// §73 — "do not automatically target HR."
+export enum ContactRoleCategory {
+  RECRUITER_ROLE = 'RECRUITER_ROLE',
+  COMPANY_DECISION_ROLE = 'COMPANY_DECISION_ROLE',
+  HR_ROLE = 'HR_ROLE',
+  OTHER = 'OTHER',
+  UNKNOWN = 'UNKNOWN',
+}
+
 export interface Company {
   id: UUID;
   tenantId: string;
@@ -153,6 +181,12 @@ export interface Company {
   score: number;
   outreachReadiness: CompanyReadiness;
   outreachReadinessReason?: string;
+  contactFormUrl?: string;
+  outreachState: OutreachState;
+  outreachStateReason?: string;
+  outreachStateAt: Date;
+  targetScore: number;
+  targetScoreBreakdown: Record<string, unknown>;
   provenance: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
@@ -188,8 +222,29 @@ export interface Recruiter {
   lastContact?: Date;
   responseHistory: unknown[];
   opportunityHistory: unknown[];
+  outreachState: OutreachState;
+  outreachStateReason?: string;
+  outreachStateAt: Date;
+  roleCategory: ContactRoleCategory;
+  contactQualityScore: number;
+  contactQualityBreakdown: Record<string, unknown>;
+  targetScore: number;
+  targetScoreBreakdown: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface OutreachStateEvent {
+  id: UUID;
+  tenantId: string;
+  entityType: string;
+  entityId: UUID;
+  fromState?: OutreachState;
+  toState: OutreachState;
+  trigger: string;
+  reason: string;
+  actor: string;
+  createdAt: Date;
 }
 
 export enum EmailType {
@@ -198,6 +253,38 @@ export enum EmailType {
   TEAM = 'TEAM',
   COMPANY = 'COMPANY',
   INFERRED = 'INFERRED',
+}
+
+// docs-pack §70-97 — Recruiter & Company Email Engine. EmailType above stays
+// the structural axis; these add the evidential axis (what a verification
+// attempt concluded) and the derived §74 user-facing label.
+export enum EmailVerificationResult {
+  VALID = 'VALID',
+  INVALID = 'INVALID',
+  RISKY = 'RISKY',
+  UNKNOWN = 'UNKNOWN',
+}
+
+// §74. Derived by src/modules/email-intelligence/classification.ts — never
+// set directly.
+export enum EmailClassification {
+  VERIFIED_NAMED = 'VERIFIED_NAMED',
+  VERIFIED_TEAM = 'VERIFIED_TEAM',
+  VERIFIED_COMPANY = 'VERIFIED_COMPANY',
+  UNVERIFIED = 'UNVERIFIED',
+  INVALID = 'INVALID',
+  UNKNOWN = 'UNKNOWN',
+}
+
+// §80 — declaration order is the priority order.
+export enum EmailSourceKind {
+  OFFICIAL_COMPANY_SOURCE = 'OFFICIAL_COMPANY_SOURCE',
+  OFFICIAL_RECRUITER_PAGE = 'OFFICIAL_RECRUITER_PAGE',
+  PUBLIC_BUSINESS_SOURCE = 'PUBLIC_BUSINESS_SOURCE',
+  ENRICHMENT_PROVIDER = 'ENRICHMENT_PROVIDER',
+  VERIFICATION_PROVIDER = 'VERIFICATION_PROVIDER',
+  CONTACT_FORM = 'CONTACT_FORM',
+  OPERATOR_ENTERED = 'OPERATOR_ENTERED',
 }
 
 export interface RecruiterEmail {
@@ -209,8 +296,45 @@ export interface RecruiterEmail {
   verified: boolean;
   verificationSource?: string;
   verifiedAt?: Date;
+  classification: EmailClassification;
+  classifiedAt?: Date;
+  normalisedAddress?: string;
+  bouncedAt?: Date;
+  bounceThreadId?: string;
+  bounceDetail: Record<string, unknown>;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface EmailVerification {
+  id: UUID;
+  recruiterEmailId: UUID;
+  address: string;
+  providerId: string;
+  result: EmailVerificationResult;
+  checkedAt: Date;
+  method: string;
+  confidence: number;
+  sourceUrl?: string;
+  conclusive: boolean;
+  chainPosition: number;
+  detail: Record<string, unknown>;
+  createdAt: Date;
+}
+
+export interface EmailSourceObservation {
+  id: UUID;
+  recruiterEmailId: UUID;
+  sourceUrl: string;
+  sourceKind: EmailSourceKind;
+  observedAt: Date;
+  extractionMethod: string;
+  pageTitle?: string;
+  contextSnippet?: string;
+  contentHash: string;
+  domainMatch: boolean;
+  personName?: string;
+  robotsAllowed: boolean;
 }
 
 // ============================================

@@ -10,20 +10,35 @@
 
 <h2>Emails</h2>
 <p class="muted">A named greeting (FIRST_NAME) requires a verified PERSONAL email; INFERRED (guessed) emails can never become send-eligible, regardless of verification (ADR-003).</p>
+<% if (recruiter.company) { %>
+  <form method="post" action="/portal/recruiters/<%= recruiter.id %>/discover-emails" class="inline-form">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <button type="submit">Discover emails on company website</button>
+  </form>
+<% } else { %>
+  <p class="muted">Link this recruiter to a company first — discovery searches the company's own website.</p>
+<% } %>
 <table>
-  <thead><tr><th>Email</th><th>Type</th><th>Verified</th><th></th></tr></thead>
+  <thead><tr><th>Email</th><th>Type</th><th>Classification (§74)</th><th>Verified</th><th></th></tr></thead>
   <tbody>
     <% recruiter.emails.forEach(function(e) { %>
       <tr>
         <td><%= e.email %></td>
         <td><%= e.emailType %></td>
+        <td><span class="badge badge-<%= e.classification === 'VERIFIED_NAMED' || e.classification === 'VERIFIED_TEAM' || e.classification === 'VERIFIED_COMPANY' ? 'active' : 'pending' %>"><%= e.classification %></span></td>
         <td><%= e.verified ? 'Yes (' + e.verificationSource + ')' : 'No' %></td>
         <td>
+          <% if (e.emailType !== 'INFERRED') { %>
+            <form method="post" action="/portal/emails/<%= e.id %>/verify" class="inline-form">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button type="submit">Run automated verification</button>
+            </form>
+          <% } %>
           <% if (!e.verified && e.emailType !== 'INFERRED') { %>
             <form method="post" action="/portal/recruiters/<%= recruiter.id %>/emails/<%= e.id %>/verify" class="inline-form">
               <input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <input type="text" name="verificationSource" placeholder="how verified (e.g. linkedin-cross-check)" required>
-              <button type="submit">Verify</button>
+              <button type="submit">Manually verify</button>
             </form>
           <% } %>
         </td>

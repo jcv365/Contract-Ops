@@ -1,9 +1,12 @@
 import { Prisma, CompanyReadiness } from '@prisma/client';
 import { prisma } from '../../db/client';
 import { logger } from '../../config/logger';
-import { CompanyType } from '../../domain/types';
+import { CompanyType, EmailType, EmailVerificationResult } from '../../domain/types';
 import { scoreCompany } from './scoring';
 import { evaluateCompanyReadiness } from './readiness';
+import { suppressionService } from '../suppression/service';
+import { classifyEmail } from '../email-intelligence/classification';
+import { recomputeOutreachState } from '../outreach-state/service';
 
 export interface CreateCompanyInput {
   name: string;
@@ -86,10 +89,35 @@ export class CompanyIntelligenceService {
     return record;
   }
 
+  // Same treatment as recruiter-intelligence/service.ts:verifyEmail — a
+  // manual assertion still gets a real §75 EmailVerification record and a
+  // derived §74 classification, so it is not exempt from the gate that
+  // hasValidChannel below (and readiness.ts's recruiter-side equivalent)
+  // now enforces.
   async verifyEmail(companyId: string, emailId: string, verificationSource: string) {
+    const existing = await prisma.recruiterEmail.findUniqueOrThrow({ where: { id: emailId } });
+    const checkedAt = new Date();
+
+    await prisma.emailVerification.create({
+      data: {
+        recruiterEmailId: emailId,
+        address: existing.email,
+        providerId: 'operator-assertion',
+        result: EmailVerificationResult.VALID as never,
+        checkedAt,
+        method: 'manual-operator-assertion',
+        confidence: 0.5,
+        conclusive: true,
+        chainPosition: 0,
+        detail: { verificationSource },
+      },
+    });
+
+    const classification = classifyEmail({ emailType: existing.emailType as unknown as EmailType, latestResult: EmailVerificationResult.VALID });
+
     const record = await prisma.recruiterEmail.update({
       where: { id: emailId },
-      data: { verified: true, verificationSource, verifiedAt: new Date() },
+      data: { verified: true, verificationSource, verifiedAt: checkedAt, classification: classification as never, classifiedAt: checkedAt },
     });
     await this.recompute(companyId);
     return record;
@@ -105,6 +133,7 @@ export class CompanyIntelligenceService {
 
     const provenance = (company.provenance as { targetingReason?: string; proposition?: string }) ?? {};
     const hasValidChannel = company.emails.some((e) => e.verified && e.emailType !== 'INFERRED');
+    const suppression = await suppressionService.checkAny(company.emails.map((e) => e.email));
 
     const readiness = evaluateCompanyReadiness({
       hasWebsite: Boolean(company.website),
@@ -112,6 +141,7 @@ export class CompanyIntelligenceService {
       targetingReason: provenance.targetingReason,
       proposition: provenance.proposition,
       hasValidChannel,
+      suppressed: suppression.suppressed,
     });
 
     await prisma.company.update({
@@ -126,6 +156,8 @@ export class CompanyIntelligenceService {
         } as Prisma.InputJsonValue,
       },
     });
+
+    await recomputeOutreachState({ entityType: 'Company', entityId: companyId, trigger: 'readiness.recompute' });
   }
 }
 

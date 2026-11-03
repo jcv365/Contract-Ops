@@ -1,6 +1,7 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import { recruiterIntelligenceService } from '../../modules/recruiter-intelligence/service';
+import { discoverRecruiterEmails, RecruiterNotFoundError } from '../../modules/email-intelligence/service';
 import { EmailType } from '../../domain/types';
 
 export const recruitersRouter = Router();
@@ -86,4 +87,23 @@ recruitersRouter.post('/:id/verify-email', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// POST /recruiters/:id/discover-emails — Sprint E: finds this recruiter's
+// email on their linked company's own site.
+recruitersRouter.post('/:id/discover-emails', async (req, res, next) => {
+  try {
+    const result = await discoverRecruiterEmails(req.params.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+recruitersRouter.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
+  if (err instanceof RecruiterNotFoundError) {
+    res.status(404).json({ error: err.message });
+    return;
+  }
+  next(err);
 });

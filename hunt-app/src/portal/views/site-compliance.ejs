@@ -1,0 +1,49 @@
+<%- include('partials/header', { title: 'Site Compliance' }) %>
+
+<h1>Site compliance</h1>
+<p class="muted">docs/22: before a domain can be fetched for discovery, its terms/licence/permitted extraction method must be reviewed by a human and robots.txt must have been fetched successfully. A domain cannot be activated without both — "if uncertain, disable the adapter and document the issue."</p>
+
+<% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
+
+<table>
+  <thead><tr><th>Domain</th><th>Robots</th><th>Reviewed</th><th>Status</th><th>Req/min</th><th>Notes</th><th></th></tr></thead>
+  <tbody>
+    <% policies.forEach(function(p) { %>
+      <tr>
+        <td><%= p.domain %></td>
+        <td class="muted"><%= p.robotsStatus || 'not yet fetched' %></td>
+        <td class="muted"><%= p.lastReviewedAt ? p.lastReviewedAt.toISOString().slice(0, 10) : 'never' %></td>
+        <td><span class="badge badge-<%= p.status.toLowerCase() %>"><%= p.status %></span></td>
+        <td><%= p.requestsPerMinute %></td>
+        <td class="muted"><%= p.notes || '' %></td>
+        <td>
+          <form method="post" action="/portal/site-compliance/<%= p.domain %>" class="inline-form">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <label class="checkbox-label"><input type="checkbox" name="markReviewed"> Mark reviewed</label>
+            <label class="checkbox-label"><input type="checkbox" name="active" <%= p.status === 'ACTIVE' ? 'checked' : '' %>> Active</label>
+            <button type="submit">Save</button>
+          </form>
+        </td>
+      </tr>
+    <% }) %>
+    <% if (policies.length === 0) { %>
+      <tr><td colspan="7" class="muted">No domains recorded yet — one is created the first time discovery attempts to fetch it.</td></tr>
+    <% } %>
+  </tbody>
+</table>
+
+<h2>Add or edit a domain's compliance record</h2>
+<form method="post" action="/portal/site-compliance/new">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <div class="grid-2">
+    <label>Domain <input type="text" name="domain" placeholder="example.com" required></label>
+    <label>Terms URL <input type="text" name="termsUrl" placeholder="https://..."></label>
+    <label>Licence <input type="text" name="licence"></label>
+    <label>Permitted method <input type="text" name="permittedMethod" placeholder="e.g. contact/team page fetch"></label>
+  </div>
+  <label>Notes <textarea name="notes" rows="2"></textarea></label>
+  <label class="checkbox-label"><input type="checkbox" name="markReviewed"> Mark reviewed</label>
+  <button type="submit">Save</button>
+</form>
+
+<%- include('partials/footer') %>

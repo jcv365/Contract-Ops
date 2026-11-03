@@ -30,6 +30,14 @@
   <button type="submit">Save profile</button>
 </form>
 
+<h2>Import from CV</h2>
+<p class="muted">Upload your CV or capability statement (PDF/DOCX) — the AI proposes a list of claims for you to review and approve on the next page. Nothing is saved until you approve it.</p>
+<form method="post" action="/portal/profile/import-cv" enctype="multipart/form-data">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <label>File <input type="file" name="file" accept=".pdf,.docx" required></label>
+  <button type="submit">Extract claims</button>
+</form>
+
 <h1>Evidence</h1>
 <p class="muted">Only VERIFIED and SOURCE_REPORTED evidence can be cited by BIDOPS (ADR-004). INFERRED/UNKNOWN/CONFLICTED are visible here but never presented as fact.</p>
 

@@ -83,6 +83,34 @@ export const envSchema = z.object({
   ENABLE_REPLY_INGESTION: strictBoolean(false),
   ENABLE_GRAPH_SEND: strictBoolean(false),
   ENABLE_BIDOPS: strictBoolean(true),
+
+  // Web-fetch discovery (docs/22 — org-website contact discovery, Sprint
+  // E). Defaults false: fetching arbitrary third-party sites is a
+  // materially different risk from calling a documented job-board API, so
+  // it stays opt-in even though the compliance layer (web-fetch/) fails
+  // closed regardless.
+  ENABLE_WEB_DISCOVERY: strictBoolean(false),
+  WEB_FETCH_MAX_PAGES_PER_COMPANY: z.coerce.number().default(12),
+  WEB_FETCH_DEFAULT_RPM: z.coerce.number().default(6),
+  // rule 14: every outbound request must identify itself honestly — for
+  // web-fetch specifically (as opposed to the job-board adapters' generic
+  // USER_AGENT) that means a real URL a site operator can visit to see who
+  // is requesting their pages and why. Required before discovery can run
+  // at all — see preflight.ts.
+  WEB_FETCH_CONTACT_URL: z.string().url().optional(),
+
+  // Attachment storage (modules/attachments/service.ts) — a local
+  // filesystem path, backed by a named Docker volume in docker-compose.yml
+  // so uploads survive a container recreate.
+  ATTACHMENT_STORAGE_DIR: z.string().default('/app/storage/attachments'),
+
+  // Search-based organisation discovery (modules/company-discovery/) —
+  // finds vendor partners / regional recruiters via a web search API,
+  // distinct from ENABLE_WEB_DISCOVERY (which only crawls a company's OWN
+  // site once it already exists as a Company row). Same fail-closed
+  // default as every other discovery flag.
+  ENABLE_SEARCH_DISCOVERY: strictBoolean(false),
+  BRAVE_SEARCH_API_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -29,4 +29,16 @@ describe('evaluateCompanyReadiness', () => {
   it('is not ready without a valid contact channel', () => {
     expect(evaluateCompanyReadiness({ ...ready, hasValidChannel: false }).ready).toBe(false);
   });
+
+  // Gap fix (2026-09-01 recovery audit): the company-side gate previously
+  // had no suppression check at all, unlike the recruiter-side gate.
+  it('is not ready when suppressed, even with every other requirement present', () => {
+    const result = evaluateCompanyReadiness({ ...ready, suppressed: true });
+    expect(result.ready).toBe(false);
+    expect(result.reason).toContain('suppression');
+  });
+
+  it('defaults to not-suppressed when the caller omits the field', () => {
+    expect(evaluateCompanyReadiness(ready).ready).toBe(true);
+  });
 });

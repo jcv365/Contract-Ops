@@ -4,6 +4,7 @@ import { prisma } from '../../db/client';
 import { logger } from '../../config/logger';
 import { RawOpportunity } from '../source-adapters/base';
 import { detectConflict, CONFLICT_TRACKED_FIELDS, ConflictCandidate } from './conflict';
+import { findOrCreateCompany, findOrCreateRecruiter } from '../dedup/service';
 
 function normaliseText(value?: string): string {
   return (value ?? '').toLowerCase().trim().replace(/\s+/g, ' ');
@@ -119,6 +120,19 @@ export async function normaliseOpportunity(
     where: { sourceId_externalId: { sourceId: source.id, externalId: raw.externalId } },
   });
 
+  // §90/R-35: this is where Market Outreach Hunt targets actually come
+  // from real job postings rather than seeds — the RawOpportunity fields
+  // below existed since Sprint 1 (base.ts) but nothing populated
+  // Opportunity.companyId/recruiterId from them until this dedup wiring.
+  let companyId: string | undefined;
+  let recruiterId: string | undefined;
+  if (raw.companyName) {
+    companyId = await findOrCreateCompany({ companyName: raw.companyName, companyWebsite: raw.companyWebsite, source: source.sourceId });
+  }
+  if (raw.recruiterName) {
+    recruiterId = await findOrCreateRecruiter({ recruiterName: raw.recruiterName, recruiterProfileUrl: raw.recruiterProfileUrl, companyId, source: source.sourceId });
+  }
+
   const data = {
     title: raw.title,
     url: raw.url,
@@ -135,6 +149,8 @@ export async function normaliseOpportunity(
     ratePeriod: raw.ratePeriod,
     rateSource: raw.rateSource,
     clusterId: cluster.id,
+    companyId,
+    recruiterId,
     provenance: {
       sourceId: source.sourceId,
       sourceDbId: source.id,
