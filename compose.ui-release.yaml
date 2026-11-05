@@ -1,0 +1,5 @@
+services:
+  hunt-app:
+    image: "dotcloud-hunt:ui-20261105-82205464b7"
+    pull_policy: never
+    build: !reset null

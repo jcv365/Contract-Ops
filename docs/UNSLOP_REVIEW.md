@@ -1,6 +1,6 @@
 # HUNT UI review
 
-5 November 2026. Local implementation and review; not deployed.
+5 November 2026. Implemented, deployed and verified; see `UNSLOP_RELEASE.md` for release evidence and limits.
 
 Product: a portal for reviewing recruiting opportunities and sources.
 Character: practical, dense, legible.
@@ -13,4 +13,3 @@ The desktop-only navigation, rigid grids, small controls, and uncontained tables
 Every top-level EJS page template compiled successfully. Actual login and dashboard templates rendered in local fixtures and passed Chromium at 1440, 768, 390 and 320 px. A long unbroken table-cell stress fixture remained inside a 320 px page; keyboard ArrowRight scrolled the focused table region. Evidence: `.artifacts/unslop/verify-table-scroll.json`, login/dashboard verification JSON, and screenshots. Real opportunity searches, approvals, exports, and authenticated server behavior were not exercised.
 
 Method: [unslop by Damir Sokolovsky](https://github.com/heydamir/unslop), licensed CC BY 4.0. Applied product-specific polish; retained existing brand decisions. Screenshots and fixtures are local review evidence, not production data or a full accessibility certification.
-
