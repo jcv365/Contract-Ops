@@ -5,6 +5,7 @@
 
 <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
 
+<div class="table-region" role="region" aria-label="Sources table" tabindex="0">
 <table>
   <thead><tr><th>Source</th><th>Type</th><th>Status</th><th>Reliability</th><th>Notes</th><th></th></tr></thead>
   <tbody>
@@ -34,5 +35,6 @@
     <% }) %>
   </tbody>
 </table>
+</div>
 
 <%- include('partials/footer') %>

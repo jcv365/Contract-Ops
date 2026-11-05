@@ -5,6 +5,7 @@
 
 <% if (error) { %><div class="alert alert-error"><%= error %></div><% } %>
 
+<div class="table-region" role="region" aria-label="Attachments table" tabindex="0">
 <table>
   <thead><tr><th>File</th><th>Kind</th><th>Size</th><th>Uploaded</th></tr></thead>
   <tbody>
@@ -21,6 +22,7 @@
     <% } %>
   </tbody>
 </table>
+</div>
 
 <h2>Upload</h2>
 <form method="post" action="/portal/attachments" enctype="multipart/form-data">

@@ -3,6 +3,7 @@
 <h1>Suppressions</h1>
 <p class="muted">docs/28: the do-not-contact hard gate. A suppressed address or domain is refused at draft-submission, approval-gate and send time (defence in depth), regardless of any other status.</p>
 
+<div class="table-region" role="region" aria-label="Suppressions table" tabindex="0">
 <table>
   <thead><tr><th>Email</th><th>Domain</th><th>Reason</th><th>Notes</th><th>Added</th><th></th></tr></thead>
   <tbody>
@@ -26,6 +27,7 @@
     <% } %>
   </tbody>
 </table>
+</div>
 
 <h2>Add a suppression</h2>
 <form method="post" action="/portal/suppressions">

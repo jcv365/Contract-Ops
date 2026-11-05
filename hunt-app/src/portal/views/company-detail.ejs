@@ -24,6 +24,7 @@
 <% if (company.contactFormUrl) { %>
   <p class="muted">No usable email found, but a contact form exists: <a href="<%= company.contactFormUrl %>"><%= company.contactFormUrl %></a> (never auto-submitted).</p>
 <% } %>
+<div class="table-region" role="region" aria-label="Company detail table" tabindex="0">
 <table>
   <thead><tr><th>Email</th><th>Type</th><th>Classification (§74)</th><th>Verified</th><th></th></tr></thead>
   <tbody>
@@ -52,6 +53,7 @@
     <% }) %>
   </tbody>
 </table>
+</div>
 
 <form method="post" action="/portal/companies/<%= company.id %>/emails">
   <input type="hidden" name="_csrf" value="<%= csrfToken %>">

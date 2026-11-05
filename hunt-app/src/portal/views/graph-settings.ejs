@@ -3,6 +3,7 @@
 <h1>Microsoft Graph settings</h1>
 <p class="muted">Read-only status. Azure/Entra credentials are never editable here — a client secret sitting in plaintext in the database is a worse security posture than "change the .env file and redeploy" for a value that changes rarely (rule 16/28).</p>
 
+<div class="table-region" role="region" aria-label="Graph settings table" tabindex="0">
 <table>
   <tbody>
     <tr><td>Send enabled (<code>ENABLE_GRAPH_SEND</code>)</td>
@@ -15,6 +16,7 @@
     <tr><td>GRAPH_REDIRECT_URI configured</td><td><span class="badge badge-<%= hasRedirectUri ? 'active' : 'pending' %>"><%= hasRedirectUri ? 'Yes' : 'No' %></span></td></tr>
   </tbody>
 </table>
+</div>
 
 <% if (!enableGraphSend) { %>
   <div class="alert alert-error">
